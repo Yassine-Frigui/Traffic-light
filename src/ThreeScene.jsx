@@ -57,7 +57,15 @@ export default function ThreeScene() {
   // ==========================================================================
   
   useEffect(() => {
-    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
+    if (import.meta.env.PROD=0) {
+
+      const wsUrl = 'ws://localhost:8000';}
+    else {
+
+      const wsUrl = import.meta.env.VITE_WS_URL ;
+    }
+
+    
     let ws = null;
     let reconnectTimeout = null;
     
@@ -656,6 +664,80 @@ export default function ThreeScene() {
       const lane = vehicle.Voie.includes('1') ? 1 : 2;
       const currentPos = vehicle.currentPosition;
       
+      const laneOff = (lane === 1 ? -LANE_OFFSET : LANE_OFFSET) * 0.8;
+      
+      let x = 0, z = 0, rotY = 0;
+      
+      // Position based on direction
+      switch (dir) {
+        case 'N': // Going north (coming from south)
+          x = -laneOff;
+          z = 50 - currentPos;
+          rotY = Math.PI;
+          break;
+        case 'S': // Going south (coming from north)
+          x = laneOff;
+          z = -50 + currentPos;
+          rotY = 0;
+          break;
+        case 'E': // Going east (coming from west)
+          x = -50 + currentPos;
+          z = -laneOff;
+          rotY = Math.PI / 2;
+          break;
+        case 'W': // Going west (coming from east)
+          x = 50 - currentPos;
+          z = laneOff;
+          rotY = -Math.PI / 2;
+          break;
+      }
+      
+      mesh.position.set(x, CONFIG.VEHICLE_Y, z);
+      mesh.rotation.y = rotY;
+      
+      // Visual feedback for waiting
+      if (vehicle.waiting) {
+        mesh.children[0]?.material?.color?.setHex(0xff0000); // Brake lights
+      } else {
+        mesh.children[0]?.material?.color?.setHex(0x333333);
+      }
+    });
+    
+    // Remove vehicles that are no longer present
+    Object.keys(vehiclesRef).forEach(id => {
+      if (!presentIds.has(parseInt(id))) {
+        const mesh = vehiclesRef[id];
+        scene.remove(mesh);
+        mesh.geometry.dispose();
+        mesh.material.dispose();
+        delete vehiclesRef[id];
+      }
+    });
+  }
+
+  // ==========================================================================
+  //  Render
+  // ==========================================================================
+  
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
+      <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
+      
+      {/* Connection status */}
+      <div style={{
+        position: 'absolute',
+        top: 10,
+        left: 10,
+        padding: '8px 16px',
+        background: connected ? 'rgba(46, 204, 113, 0.9)' : 'rgba(231, 76, 60, 0.9)',
+        color: 'white',
+        borderRadius: 4,
+        fontSize: 14,
+        fontFamily: 'Arial, sans-serif'
+      }}>
+        {connected ? '● Connected' : '○ Disconnected'}
+      </div>
+      
       {/* Events panel */}
       <div style={{
         position: 'absolute',
@@ -701,80 +783,6 @@ export default function ThreeScene() {
           </div>
         )}
       </div>
-      
-      {/* Instructions */}material?.color?.setHex(0x333333);
-      }
-    });
-    
-    // Remove vehicles that are no longer present
-    Object.keys(vehiclesRef).forEach(id => {
-      if (!presentIds.has(parseInt(id))) {
-        const mesh = vehiclesRef[id];
-        scene.remove(mesh);
-        mesh.geometry.dispose();
-        mesh.material.dispose();
-        delete vehiclesRef[id];
-      }
-    });
-  }
-
-  // ==========================================================================
-  //  Render
-  // ==========================================================================
-  
-  return (
-    <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
-      <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
-      
-      {/* Connection status */}
-      <div style={{
-        position: 'absolute',
-        top: 10,
-        left: 10,
-        padding: '8px 16px',
-        background: connected ? 'rgba(46, 204, 113, 0.9)' : 'rgba(231, 76, 60, 0.9)',
-        color: 'white',
-        borderRadius: 4,
-        fontSize: 14,
-        fontFamily: 'Arial, sans-serif'
-      }}>
-        {connected ? '● Connected' : '○ Disconnected'}
-      </div>
-      
-      {/* Events panel */}
-      {events.length > 0 && (
-        <div style={{
-          position: 'absolute',
-          top: 10,
-          right: 10,
-          padding: 12,
-          background: 'rgba(0, 0, 0, 0.8)',
-          color: 'white',
-          borderRadius: 8,
-          fontSize: 13,
-          fontFamily: 'Arial, sans-serif',
-          maxWidth: 250
-        }}>
-          <div style={{ fontWeight: 'bold', marginBottom: 8, color: '#f39c12' }}>
-            Active Events
-          </div>
-          {events.map((event, i) => (
-            <div key={i} style={{ 
-              marginBottom: 6, 
-              padding: '4px 8px',
-              background: 'rgba(255,255,255,0.1)',
-              borderRadius: 4
-            }}>
-              <div style={{ fontWeight: 'bold', color: '#3498db' }}>{event.name}</div>
-              <div style={{ fontSize: 11, opacity: 0.8 }}>{event.description}</div>
-              <div style={{ fontSize: 11, color: '#f39c12' }}>
-                Time: {Math.ceil(event.time_remaining)}s | 
-                Flow: {event.flux_multiplier > 1 ? '+' : ''}{Math.round((event.flux_multiplier - 1) * 100)}%
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
       
       {/* Instructions */}
       <div style={{
