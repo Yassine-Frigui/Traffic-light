@@ -12,7 +12,6 @@ function App() {
         <span className="tag">Cars</span>
       </div>
       <ThreeScene />
-      <div className="panel">Drag to rotate. Cars circle the roundabout. Lights cycle.</div>
     </>
   );
 }
