@@ -569,7 +569,6 @@ export default function ThreeScene() {
         mesh.children[0]?.material?.color?.setHex(0x333333);
       }
     });
-    });
     
     // Remove vehicles that are no longer present
     Object.keys(vehiclesRef).forEach(id => {
