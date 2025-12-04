@@ -57,14 +57,8 @@ export default function ThreeScene() {
   // ==========================================================================
   
   useEffect(() => {
-    if (import.meta.env.PROD=0) {
-
-      const wsUrl = 'ws://localhost:8000';}
-    else {
-
-      const wsUrl = import.meta.env.VITE_WS_URL ;
-    }
-
+    const isProd = import.meta.env.PROD;
+    const wsUrl = isProd ? import.meta.env.VITE_WS_URL : 'ws://localhost:8000';
     
     let ws = null;
     let reconnectTimeout = null;
@@ -75,7 +69,7 @@ export default function ThreeScene() {
       ws.onopen = () => {
         console.log('✓ Connected to simulation server');
         setConnected(true);
-        console.log(`${PROD ? 'Production' : 'Development'} mode`)
+        console.log(`${isProd ? 'Production' : 'Development'} mode`)
       };
       
       ws.onmessage = (event) => {
@@ -88,20 +82,11 @@ export default function ThreeScene() {
           if (data.Vehicles) {
             const newLocalVehicles = {};
             data.Vehicles.forEach(v => {
-              // If vehicle already exists locally, keep its position if it's reasonable
-              // Otherwise use server position (e.g. for new cars)
-              const existing = sceneDataRef.current.localVehicles[v.Id];
+              if (!v.Id || !v.Sens || !['N','S','E','W'].includes(v.Sens)) return; // Skip invalid vehicles
               newLocalVehicles[v.Id] = {
                 ...v,
-                // If it's a new car (or we want to reset), use server position.
-                // Since server sends snapshot every 60s, we basically reset every 60s.
-                // But to avoid jump, we could try to match? 
-                // Actually, server sends random positions. We should trust server for NEW cars,
-                // but maybe we should just reset everything every 60s?
-                // The user wants continuous flow.
-                // Let's trust the server's initial position for this interval.
-                currentPosition: v.Position, 
-                currentSpeed: v.Speed,
+                currentPosition: v.Position || 0,
+                currentSpeed: v.Speed || 0,
                 waiting: false
               };
             });
@@ -644,7 +629,8 @@ export default function ThreeScene() {
       if (!mesh) {
         const bodyGeo = new THREE.BoxGeometry(1.8, 0.8, 3.5);
         const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c'];
-        const color = colors[vehicle.Id % colors.length];
+        const id = vehicle.Id || 0;
+        const color = colors[id % colors.length];
         const bodyMat = new THREE.MeshLambertMaterial({ color });
         mesh = new THREE.Mesh(bodyGeo, bodyMat);
         mesh.castShadow = true;
@@ -690,6 +676,12 @@ export default function ThreeScene() {
           x = 50 - currentPos;
           z = laneOff;
           rotY = -Math.PI / 2;
+          break;
+        default:
+          // Invalid direction, place at center
+          x = 0;
+          z = 0;
+          rotY = 0;
           break;
       }
       
