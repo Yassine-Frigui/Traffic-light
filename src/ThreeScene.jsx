@@ -43,11 +43,14 @@ export default function ThreeScene() {
     trafficLights: {},   // direction -> {group, bulbs, timerMesh, lastDisplayedTimer}
     vehicles: {},        // id -> mesh
     simulationData: null,
-    lastPacketTime: 0
+    lastPacketTime: 0,
+    localVehicles: {}    // id -> { position, speed, lane, direction, waiting }
   });
   
   const [connected, setConnected] = useState(false);
   const [events, setEvents] = useState([]);
+  const [trafficState, setTrafficState] = useState('Moderate');
+  const [activeEvent, setActiveEvent] = useState(null);
 
   // ==========================================================================
   //  WebSocket Connection
@@ -72,6 +75,47 @@ export default function ThreeScene() {
           sceneDataRef.current.simulationData = data;
           sceneDataRef.current.lastPacketTime = performance.now();
           
+          // Initialize local vehicle state from server data
+          if (data.Vehicles) {
+            const newLocalVehicles = {};
+            data.Vehicles.forEach(v => {
+              // If vehicle already exists locally, keep its position if it's reasonable
+              // Otherwise use server position (e.g. for new cars)
+              const existing = sceneDataRef.current.localVehicles[v.Id];
+              newLocalVehicles[v.Id] = {
+                ...v,
+                // If it's a new car (or we want to reset), use server position.
+                // Since server sends snapshot every 60s, we basically reset every 60s.
+                // But to avoid jump, we could try to match? 
+                // Actually, server sends random positions. We should trust server for NEW cars,
+                // but maybe we should just reset everything every 60s?
+                // The user wants continuous flow.
+                // Let's trust the server's initial position for this interval.
+                currentPosition: v.Position, 
+                currentSpeed: v.Speed,
+                waiting: false
+              };
+            });
+            sceneDataRef.current.localVehicles = newLocalVehicles;
+          }
+
+          // Update HUD state
+          if (data.Event) {
+            setActiveEvent(data.Event.name);
+            // Map event to traffic state
+            const name = data.Event.name;
+            if (['Rush Hour', 'Accident', 'Construction', 'Bad Weather'].includes(name)) {
+              setTrafficState('Slow');
+            } else if (name === 'Event Nearby') {
+              setTrafficState('Moderate'); // High volume but moving
+            } else {
+              setTrafficState('Moderate');
+            }
+          } else {
+            setActiveEvent(null);
+            setTrafficState('Fast'); // No event = normal/fast
+          }
+
           if (data.Events) {
             setEvents(data.Events);
           }
@@ -203,9 +247,16 @@ export default function ThreeScene() {
       // Update from simulation data
       const data = sceneDataRef.current.simulationData;
       if (data) {
-        const elapsed = (now - sceneDataRef.current.lastPacketTime) / 1000;
-        updateTrafficLights(data.Lights, sceneDataRef.current.trafficLights, elapsed);
-        updateVehicles(data.Vehicles, scene, sceneDataRef.current.vehicles, elapsed);
+        // Calculate delta time for this frame
+        const elapsedTotal = (now - sceneDataRef.current.lastPacketTime) / 1000;
+        
+        updateTrafficLights(data.Lights, sceneDataRef.current.trafficLights, elapsedTotal);
+        
+        // Run physics simulation step
+        updateVehiclesPhysics(dt, data.Lights, sceneDataRef.current.localVehicles);
+        
+        // Update meshes based on local physics state
+        updateVehicleMeshes(sceneDataRef.current.localVehicles, scene, sceneDataRef.current.vehicles);
       }
       
       renderer.render(scene, camera);
@@ -491,15 +542,91 @@ export default function ThreeScene() {
     });
   }
   
-  function updateVehicles(vehiclesData, scene, vehiclesRef, elapsed) {
-    if (!vehiclesData || !Array.isArray(vehiclesData)) return;
+  function updateVehiclesPhysics(dt, lightsData, localVehicles) {
+    if (!localVehicles) return;
+
+    // Helper to get light color for a direction
+    const getLightColor = (dir) => {
+      const light = lightsData.find(l => l.Sens === dir);
+      return light ? light.Couleur : 'GREEN';
+    };
+
+    const STOP_LINE = -12; // Distance from center where cars should stop
+    const INTERSECTION_EXIT = 12; // Distance where cars are clear of intersection
+    const SAFE_DISTANCE = 6; // Minimum distance between cars
+
+    // Convert object to array for sorting
+    const vehicles = Object.values(localVehicles);
+
+    // Group by lane (Direction + Lane ID) to check for cars ahead
+    const lanes = {};
+    vehicles.forEach(v => {
+      const key = `${v.Sens}-${v.Voie}`;
+      if (!lanes[key]) lanes[key] = [];
+      lanes[key].push(v);
+    });
+
+    // Sort cars in each lane by position (descending = furthest ahead)
+    Object.values(lanes).forEach(laneVehicles => {
+      laneVehicles.sort((a, b) => b.currentPosition - a.currentPosition);
+    });
+
+    // Update each vehicle
+    vehicles.forEach(v => {
+      const lightColor = getLightColor(v.Sens);
+      let targetSpeed = v.Speed;
+      let shouldStop = false;
+
+      // 1. Traffic Light Logic
+      // If light is RED or YELLOW, and we are approaching the stop line
+      if ((lightColor === 'RED' || lightColor === 'YELLOW') && 
+          v.currentPosition < STOP_LINE && 
+          v.currentPosition > STOP_LINE - 30) { // Only stop if we are close enough
+        shouldStop = true;
+      }
+
+      // 2. Collision Avoidance (Car ahead)
+      const key = `${v.Sens}-${v.Voie}`;
+      const laneVehicles = lanes[key];
+      const myIndex = laneVehicles.indexOf(v);
+      
+      if (myIndex > 0) {
+        const carAhead = laneVehicles[myIndex - 1];
+        const distanceToCarAhead = carAhead.currentPosition - v.currentPosition;
+        
+        if (distanceToCarAhead < SAFE_DISTANCE) {
+          shouldStop = true;
+          // Match speed of car ahead if we are too close but not stopped?
+          // For simplicity, just stop/go logic
+        } else if (distanceToCarAhead < SAFE_DISTANCE * 2) {
+          // Slow down
+          targetSpeed = Math.min(targetSpeed, carAhead.currentSpeed);
+        }
+      }
+
+      // Apply physics
+      if (shouldStop) {
+        // Decelerate
+        v.currentSpeed = Math.max(0, v.currentSpeed - 20 * dt);
+        v.waiting = true;
+      } else {
+        // Accelerate
+        v.currentSpeed = Math.min(v.Speed, v.currentSpeed + 10 * dt);
+        v.waiting = false;
+      }
+
+      // Move
+      v.currentPosition += v.currentSpeed * dt;
+    });
+  }
+
+  function updateVehicleMeshes(localVehicles, scene, vehiclesRef) {
+    if (!localVehicles) return;
     
     const { LANE_OFFSET, ROAD_HEIGHT } = CONFIG;
-    
-    // Track which vehicles are still present
     const presentIds = new Set();
     
-    vehiclesData.forEach(vehicle => {
+    Object.values(localVehicles).forEach(vehicle => {
       presentIds.add(vehicle.Id);
       
       let mesh = vehiclesRef[vehicle.Id];
@@ -527,46 +654,55 @@ export default function ThreeScene() {
       // Calculate position based on direction and lane
       const dir = vehicle.Sens;
       const lane = vehicle.Voie.includes('1') ? 1 : 2;
-      // Extrapolate position based on speed and elapsed time
-      const currentPos = vehicle.Position + (vehicle.Speed * elapsed);
+      const currentPos = vehicle.currentPosition;
       
-      const laneOff = (lane === 1 ? -LANE_OFFSET : LANE_OFFSET) * 0.8;
+      {/* Events panel */}
+      <div style={{
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-end',
+        gap: 10
+      }}>
+        {/* Traffic State HUD */}
+        <div style={{
+          padding: '12px 20px',
+          background: 'rgba(0, 0, 0, 0.85)',
+          color: 'white',
+          borderRadius: 8,
+          fontSize: 16,
+          fontFamily: 'Arial, sans-serif',
+          borderLeft: `6px solid ${
+            trafficState === 'Slow' ? '#e74c3c' : 
+            trafficState === 'Moderate' ? '#f39c12' : '#2ecc71'
+          }`,
+          boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+        }}>
+          <div style={{ fontSize: 12, textTransform: 'uppercase', opacity: 0.7, marginBottom: 4 }}>Traffic State</div>
+          <div style={{ fontSize: 24, fontWeight: 'bold' }}>{trafficState}</div>
+        </div>
+
+        {/* Active Event HUD */}
+        {activeEvent && (
+          <div style={{
+            padding: '12px 20px',
+            background: 'rgba(192, 57, 43, 0.9)',
+            color: 'white',
+            borderRadius: 8,
+            fontSize: 16,
+            fontFamily: 'Arial, sans-serif',
+            animation: 'pulse 2s infinite',
+            boxShadow: '0 4px 15px rgba(192, 57, 43, 0.4)'
+          }}>
+            <div style={{ fontSize: 12, textTransform: 'uppercase', fontWeight: 'bold', marginBottom: 4 }}>⚠ ACTIVE EVENT</div>
+            <div style={{ fontSize: 20, fontWeight: 'bold' }}>{activeEvent}</div>
+          </div>
+        )}
+      </div>
       
-      let x = 0, z = 0, rotY = 0;
-      
-      // Position based on direction
-      // Position is distance along the road: negative = approaching, positive = past intersection
-      switch (dir) {
-        case 'N': // Going north (coming from south)
-          x = -laneOff;  // Right side of road
-          z = 50 - currentPos;  // Start from south, move north (z decreases)
-          rotY = Math.PI; // Face north
-          break;
-        case 'S': // Going south (coming from north)
-          x = laneOff;   // Right side of road
-          z = -50 + currentPos; // Start from north, move south (z increases)
-          rotY = 0;      // Face south
-          break;
-        case 'E': // Going east (coming from west)
-          x = -50 + currentPos; // Start from west, move east (x increases)
-          z = -laneOff;  // Right side of road
-          rotY = Math.PI / 2; // Face east
-          break;
-        case 'W': // Going west (coming from east)
-          x = 50 - currentPos;  // Start from east, move west (x decreases)
-          z = laneOff;   // Right side of road
-          rotY = -Math.PI / 2; // Face west
-          break;
-      }
-      
-      mesh.position.set(x, CONFIG.VEHICLE_Y, z);
-      mesh.rotation.y = rotY;
-      
-      // Visual feedback for waiting
-      if (vehicle.Waiting) {
-        mesh.children[0]?.material?.color?.setHex(0xff0000); // Brake lights
-      } else {
-        mesh.children[0]?.material?.color?.setHex(0x333333);
+      {/* Instructions */}material?.color?.setHex(0x333333);
       }
     });
     

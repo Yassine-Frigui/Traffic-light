@@ -77,15 +77,18 @@ def generate_state():
     # Vehicles: spawn based on flow
     vehicles = []
     for t in traffic:
-        count = max(1, t["flow"] // 3)  # Rough: 1 vehicle per 3 flow units
+        count = max(1, t["flow"])  # Use full flow count
         for i in range(count):
             vehicle_counter += 1
+            # Spawn vehicles spread out over a long distance to cover the 60s interval
+            # Speed is approx 10-15 m/s. 60s * 15m/s = 900m.
+            # We spawn them from -900 to 20 so they arrive continuously.
             vehicles.append(make_vehicle(
                 id=vehicle_counter,
                 direction=t["direction"],
                 lane=random.randint(1, 2),
-                position=random.uniform(-50, 50),
-                speed=random.uniform(5, 15)
+                position=random.uniform(-900, 20), 
+                speed=random.uniform(8, 15)
             ))
     
     return {
