@@ -7,8 +7,8 @@ import asyncio
 import json
 import os
 import random
-import websockets
 from http import HTTPStatus
+from websockets.asyncio.server import serve
 
 # Config
 HOST = "0.0.0.0"
@@ -19,10 +19,11 @@ INTERVAL = 60  # seconds per state update
 #  HTTP HEALTH CHECK HANDLER (for Render)
 # ============================================================================
 
-async def health_check(path, request_headers):
+def health_check(connection, request):
     """Handle HTTP health check requests from Render."""
-    # Respond to any HTTP request with OK (for health checks)
-    return HTTPStatus.OK, [], b"OK\n"
+    if request.path == "/healthz" or request.method == "HEAD":
+        return connection.respond(HTTPStatus.OK, "OK\n")
+    return None  # Continue with WebSocket handshake
 
 # ============================================================================
 #  RECORDS (simple dictionaries)
@@ -151,7 +152,7 @@ async def main():
     print(f"Traffic server starting on ws://{HOST}:{PORT}")
     print(f"State updates every {INTERVAL} seconds")
     
-    async with websockets.serve(handle_client, HOST, PORT, process_request=health_check):
+    async with serve(handle_client, HOST, PORT, process_request=health_check):
         print("Server ready!")
         await state_loop()
 
