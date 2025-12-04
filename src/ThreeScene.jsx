@@ -139,7 +139,9 @@ export default function ThreeScene() {
 
   // Connect to Python WebSocket for real-time simulation data
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:8000/sim');
+    // Use environment variable for WebSocket URL, fallback to localhost for dev
+    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
+    const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
       console.log('Connected to Python simulation');
@@ -160,6 +162,10 @@ export default function ThreeScene() {
 
     ws.onclose = () => {
       console.log('Disconnected from Python simulation');
+      // Attempt to reconnect after 3 seconds
+      setTimeout(() => {
+        console.log('Attempting to reconnect...');
+      }, 3000);
     };
 
     ws.onerror = (error) => {

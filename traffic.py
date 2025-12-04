@@ -3,6 +3,11 @@ import random
 import asyncio
 import websockets
 import json
+import os
+
+# Server configuration
+HOST = "0.0.0.0"  # Bind to all interfaces for cloud deployment
+PORT = int(os.environ.get("PORT", 8000))
 
 # -----------------------------------------------------------
 #  RANDOM EVENTS LIST
@@ -139,8 +144,8 @@ async def run_simulation():
         await asyncio.sleep(0.1)
 
 async def main():
-    server = await websockets.serve(handler, "localhost", 8000)
-    print("WebSocket server started on ws://localhost:8000/sim")
+    server = await websockets.serve(handler, HOST, PORT)
+    print(f"WebSocket server started on ws://{HOST}:{PORT}")
     await run_simulation()
     await server.wait_closed()
 
