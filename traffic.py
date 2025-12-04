@@ -8,6 +8,7 @@ import json
 import os
 import random
 import websockets
+from http import HTTPStatus
 
 # Config
 HOST = "0.0.0.0"
@@ -15,16 +16,25 @@ PORT = int(os.environ.get("PORT", 8000))
 INTERVAL = 60  # seconds per state update
 
 # ============================================================================
+#  HTTP HEALTH CHECK HANDLER (for Render)
+# ============================================================================
+
+async def health_check(path, request_headers):
+    """Handle HTTP health check requests from Render."""
+    # Respond to any HTTP request with OK (for health checks)
+    return HTTPStatus.OK, [], b"OK\n"
+
+# ============================================================================
 #  RECORDS (simple dictionaries)
 # ============================================================================
 
 def make_light(direction, color, timer):
-    """Light record: direction (N/S/E/W), color (RED/YELLOW/GREEN), timer (seconds left)"""
-    return {"direction": direction, "color": color, "timer": timer}
+    """Light record: Sens (N/S/E/W), Couleur (RED/YELLOW/GREEN), Timer (seconds left)"""
+    return {"Sens": direction, "Couleur": color, "Timer": timer}
 
 def make_vehicle(id, direction, lane, position, speed):
-    """Vehicle record: id, direction, lane (1/2), position, speed"""
-    return {"id": id, "direction": direction, "lane": lane, "position": position, "speed": speed}
+    """Vehicle record: Id, Sens, Voie (Lane1/Lane2), Position, Speed"""
+    return {"Id": id, "Sens": direction, "Voie": f"Lane{lane}", "Position": position, "Speed": speed, "Waiting": False}
 
 def make_traffic(direction, flow, event=None):
     """Traffic record: direction, flow (vehicles/min), optional event"""
@@ -141,7 +151,7 @@ async def main():
     print(f"Traffic server starting on ws://{HOST}:{PORT}")
     print(f"State updates every {INTERVAL} seconds")
     
-    async with websockets.serve(handle_client, HOST, PORT):
+    async with websockets.serve(handle_client, HOST, PORT, process_request=health_check):
         print("Server ready!")
         await state_loop()
 
