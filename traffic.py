@@ -7,23 +7,13 @@ import asyncio
 import json
 import os
 import random
-from http import HTTPStatus
-from websockets.asyncio.server import serve
+from aiohttp import web
 
 # Config
 HOST = "0.0.0.0"
 PORT = int(os.environ.get("PORT", 8000))
 INTERVAL = 60  # seconds per state update
 
-# ============================================================================
-#  HTTP HEALTH CHECK HANDLER (for Render)
-# ============================================================================
-
-def health_check(connection, request):
-    """Handle HTTP health check requests from Render."""
-    if request.path == "/healthz" or request.method == "HEAD":
-        return connection.respond(HTTPStatus.OK, "OK\n")
-    return None  # Continue with WebSocket handshake
 
 # ============================================================================
 #  RECORDS (simple dictionaries)
@@ -107,35 +97,47 @@ def generate_state():
     }
 
 # ============================================================================
-#  WEBSOCKET SERVER
+#  WEBSOCKET SERVER (aiohttp)
 # ============================================================================
 
 clients = set()
 current_state = generate_state()
 
-async def handle_client(websocket):
+async def websocket_handler(request):
     """Handle a WebSocket connection."""
-    clients.add(websocket)
+    ws = web.WebSocketResponse()
+    await ws.prepare(request)
+    
+    clients.add(ws)
     print(f"Client connected ({len(clients)} total)")
     
     # Send current state immediately
     try:
-        await websocket.send(json.dumps(current_state))
+        await ws.send_json(current_state)
     except:
         pass
     
     try:
-        await websocket.wait_closed()
+        async for msg in ws:
+            pass # Ignore incoming messages
     finally:
-        clients.discard(websocket)
+        clients.discard(ws)
         print(f"Client disconnected ({len(clients)} total)")
+    
+    return ws
+
+async def health_check(request):
+    """Handle HTTP health check requests."""
+    return web.Response(text="OK")
 
 async def broadcast(state):
     """Send state to all connected clients."""
     if not clients:
         return
-    msg = json.dumps(state)
-    await asyncio.gather(*[c.send(msg) for c in clients], return_exceptions=True)
+    # Create tasks for sending
+    tasks = [ws.send_json(state) for ws in clients]
+    # Use gather to run them concurrently
+    await asyncio.gather(*tasks, return_exceptions=True)
 
 async def state_loop():
     """Generate new state every INTERVAL seconds."""
@@ -147,14 +149,31 @@ async def state_loop():
         print(f"New state: {event_name} traffic, {len(current_state['Vehicles'])} vehicles")
         await broadcast(current_state)
 
+async def init_app():
+    app = web.Application()
+    app.add_routes([
+        web.get('/', websocket_handler),
+        web.head('/', health_check),
+        web.get('/healthz', health_check),
+        web.head('/healthz', health_check),
+    ])
+    return app
+
 async def main():
     """Start server."""
-    print(f"Traffic server starting on ws://{HOST}:{PORT}")
+    print(f"Traffic server starting on http://{HOST}:{PORT}")
     print(f"State updates every {INTERVAL} seconds")
     
-    async with serve(handle_client, HOST, PORT, process_request=health_check):
-        print("Server ready!")
-        await state_loop()
+    app = await init_app()
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, HOST, PORT)
+    await site.start()
+    
+    print("Server ready!")
+    
+    # Run state loop
+    await state_loop()
 
 if __name__ == "__main__":
     asyncio.run(main())
