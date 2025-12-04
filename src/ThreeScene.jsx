@@ -75,6 +75,7 @@ export default function ThreeScene() {
       ws.onopen = () => {
         console.log('✓ Connected to simulation server');
         setConnected(true);
+        console.log(`${PROD ? 'Production' : 'Development'} mode`)
       };
       
       ws.onmessage = (event) => {
