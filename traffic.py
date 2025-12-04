@@ -152,10 +152,9 @@ async def state_loop():
 async def init_app():
     app = web.Application()
     app.add_routes([
-        web.get('/', websocket_handler),
+        web.get('/', websocket_handler, allow_head=False),
         web.head('/', health_check),
         web.get('/healthz', health_check),
-        web.head('/healthz', health_check),
     ])
     return app
 

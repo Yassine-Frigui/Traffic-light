@@ -401,6 +401,20 @@ export default function ThreeScene() {
       
       // Direction names
       const directionNames = { 'N': 'NORTH', 'S': 'SOUTH', 'E': 'EAST', 'W': 'WEST' };
+      const dirName = directionNames[direction];
+
+      // Initial draw
+      const ctx = timerCanvas.getContext('2d');
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      ctx.fillRect(0, 0, 256, 128);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 28px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(dirName, 128, 35);
+      ctx.font = 'bold 48px Arial';
+      ctx.fillText("--", 128, 88); // Placeholder for timer
+      timerTexture.needsUpdate = true;
       
       scene.add(group);
       
@@ -411,7 +425,7 @@ export default function ThreeScene() {
         timerCanvas,
         timerTexture,
         timerSprite,
-        directionName: directionNames[direction]
+        directionName: dirName
       };
     });
   }
