@@ -40,9 +40,10 @@ export default function ThreeScene() {
     scene: null,
     camera: null,
     renderer: null,
-    trafficLights: {},   // direction -> {group, bulbs, timerMesh}
+    trafficLights: {},   // direction -> {group, bulbs, timerMesh, lastDisplayedTimer}
     vehicles: {},        // id -> mesh
-    simulationData: null
+    simulationData: null,
+    lastPacketTime: 0
   });
   
   const [connected, setConnected] = useState(false);
@@ -69,6 +70,7 @@ export default function ThreeScene() {
         try {
           const data = JSON.parse(event.data);
           sceneDataRef.current.simulationData = data;
+          sceneDataRef.current.lastPacketTime = performance.now();
           
           if (data.Events) {
             setEvents(data.Events);
@@ -201,8 +203,9 @@ export default function ThreeScene() {
       // Update from simulation data
       const data = sceneDataRef.current.simulationData;
       if (data) {
-        updateTrafficLights(data.Lights, sceneDataRef.current.trafficLights);
-        updateVehicles(data.Vehicles, scene, sceneDataRef.current.vehicles);
+        const elapsed = (now - sceneDataRef.current.lastPacketTime) / 1000;
+        updateTrafficLights(data.Lights, sceneDataRef.current.trafficLights, elapsed);
+        updateVehicles(data.Vehicles, scene, sceneDataRef.current.vehicles, elapsed);
       }
       
       renderer.render(scene, camera);
@@ -332,16 +335,16 @@ export default function ThreeScene() {
         rotation: 0,  // Faces north
         label: 'S'
       },
-      // East light: positioned at east side, faces WEST (toward cars coming from west)
+      // East light: positioned at east side, faces EAST (toward cars coming from east)
       'E': { 
         position: new THREE.Vector3(LIGHT_DISTANCE, 0, -LANE_OFFSET - 1.5),
-        rotation: -Math.PI / 2,  // Faces west
+        rotation: Math.PI / 2,  // Faces East
         label: 'E'
       },
-      // West light: positioned at west side, faces EAST (toward cars coming from east)
+      // West light: positioned at west side, faces WEST (toward cars coming from west)
       'W': { 
         position: new THREE.Vector3(-LIGHT_DISTANCE, 0, LANE_OFFSET + 1.5),
-        rotation: Math.PI / 2,  // Faces east
+        rotation: -Math.PI / 2,  // Faces West
         label: 'W'
       }
     };
@@ -433,8 +436,7 @@ export default function ThreeScene() {
   // ==========================================================================
   //  Update Functions
   // ==========================================================================
-  
-  function updateTrafficLights(lightsData, trafficLightsRef) {
+  function updateTrafficLights(lightsData, trafficLightsRef, elapsed) {
     if (!lightsData || !Array.isArray(lightsData)) return;
     
     lightsData.forEach(light => {
@@ -459,30 +461,37 @@ export default function ThreeScene() {
       }
       
       // Update timer and direction display
-      const ctx = timerCanvas.getContext('2d');
-      ctx.clearRect(0, 0, 256, 128);
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-      ctx.fillRect(0, 0, 256, 128);
+      // Only update texture if the integer second has changed to avoid performance issues
+      const timeRemaining = Math.max(0, (light.Timer || 0) - elapsed);
+      const displayTime = Math.ceil(timeRemaining);
       
-      // Direction label at top
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 28px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(directionName, 128, 35);
-      
-      // Timer text below
-      const timeRemaining = light.Timer || 0;
-      ctx.fillStyle = light.Couleur === 'RED' ? '#ff4444' : 
-                      light.Couleur === 'YELLOW' ? '#ffff44' : '#44ff44';
-      ctx.font = 'bold 48px Arial';
-      ctx.fillText(Math.ceil(timeRemaining).toString() + 's', 128, 88);
-      
-      timerTexture.needsUpdate = true;
+      if (lightRef.lastDisplayedTimer !== displayTime) {
+        lightRef.lastDisplayedTimer = displayTime;
+        
+        const ctx = timerCanvas.getContext('2d');
+        ctx.clearRect(0, 0, 256, 128);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(0, 0, 256, 128);
+        
+        // Direction label at top
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 28px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(directionName, 128, 35);
+        
+        // Timer text below
+        ctx.fillStyle = light.Couleur === 'RED' ? '#ff4444' : 
+                        light.Couleur === 'YELLOW' ? '#ffff44' : '#44ff44';
+        ctx.font = 'bold 48px Arial';
+        ctx.fillText(displayTime.toString() + 's', 128, 88);
+        
+        timerTexture.needsUpdate = true;
+      }
     });
   }
   
-  function updateVehicles(vehiclesData, scene, vehiclesRef) {
+  function updateVehicles(vehiclesData, scene, vehiclesRef, elapsed) {
     if (!vehiclesData || !Array.isArray(vehiclesData)) return;
     
     const { LANE_OFFSET, ROAD_HEIGHT } = CONFIG;
@@ -518,7 +527,9 @@ export default function ThreeScene() {
       // Calculate position based on direction and lane
       const dir = vehicle.Sens;
       const lane = vehicle.Voie.includes('1') ? 1 : 2;
-      const pos = vehicle.Position;
+      // Extrapolate position based on speed and elapsed time
+      const currentPos = vehicle.Position + (vehicle.Speed * elapsed);
+      
       const laneOff = (lane === 1 ? -LANE_OFFSET : LANE_OFFSET) * 0.8;
       
       let x = 0, z = 0, rotY = 0;
@@ -528,21 +539,21 @@ export default function ThreeScene() {
       switch (dir) {
         case 'N': // Going north (coming from south)
           x = -laneOff;  // Right side of road
-          z = 50 - pos;  // Start from south, move north (z decreases)
+          z = 50 - currentPos;  // Start from south, move north (z decreases)
           rotY = Math.PI; // Face north
           break;
         case 'S': // Going south (coming from north)
           x = laneOff;   // Right side of road
-          z = -50 + pos; // Start from north, move south (z increases)
+          z = -50 + currentPos; // Start from north, move south (z increases)
           rotY = 0;      // Face south
           break;
         case 'E': // Going east (coming from west)
-          x = -50 + pos; // Start from west, move east (x increases)
+          x = -50 + currentPos; // Start from west, move east (x increases)
           z = -laneOff;  // Right side of road
           rotY = Math.PI / 2; // Face east
           break;
         case 'W': // Going west (coming from east)
-          x = 50 - pos;  // Start from east, move west (x decreases)
+          x = 50 - currentPos;  // Start from east, move west (x decreases)
           z = laneOff;   // Right side of road
           rotY = -Math.PI / 2; // Face west
           break;
@@ -557,6 +568,7 @@ export default function ThreeScene() {
       } else {
         mesh.children[0]?.material?.color?.setHex(0x333333);
       }
+    });
     });
     
     // Remove vehicles that are no longer present
