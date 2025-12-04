@@ -388,16 +388,19 @@ export default function ThreeScene() {
       greenBulb.position.set(0, 4.7, 0.41);
       group.add(greenBulb);
       
-      // Timer display (text sprite)
+      // Timer and Direction label display (text sprite)
       const timerCanvas = document.createElement('canvas');
-      timerCanvas.width = 128;
-      timerCanvas.height = 64;
+      timerCanvas.width = 256;
+      timerCanvas.height = 128;
       const timerTexture = new THREE.CanvasTexture(timerCanvas);
       const timerMat = new THREE.SpriteMaterial({ map: timerTexture });
       const timerSprite = new THREE.Sprite(timerMat);
-      timerSprite.position.set(0, 7.5, 0);
-      timerSprite.scale.set(2, 1, 1);
+      timerSprite.position.set(0, 8, 0);
+      timerSprite.scale.set(4, 2, 1);
       group.add(timerSprite);
+      
+      // Direction names
+      const directionNames = { 'N': 'NORTH', 'S': 'SOUTH', 'E': 'EAST', 'W': 'WEST' };
       
       scene.add(group);
       
@@ -407,7 +410,8 @@ export default function ThreeScene() {
         bulbs: { red: redBulb, yellow: yellowBulb, green: greenBulb },
         timerCanvas,
         timerTexture,
-        timerSprite
+        timerSprite,
+        directionName: directionNames[direction]
       };
     });
   }
@@ -424,7 +428,7 @@ export default function ThreeScene() {
       const lightRef = trafficLightsRef[direction];
       if (!lightRef) return;
       
-      const { bulbs, timerCanvas, timerTexture } = lightRef;
+      const { bulbs, timerCanvas, timerTexture, directionName } = lightRef;
       
       // Reset all bulbs to dim
       bulbs.red.material.color.setHex(0x330000);
@@ -440,20 +444,25 @@ export default function ThreeScene() {
         bulbs.green.material.color.setHex(0x00ff00);
       }
       
-      // Update timer display
+      // Update timer and direction display
       const ctx = timerCanvas.getContext('2d');
-      ctx.clearRect(0, 0, 128, 64);
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(0, 0, 128, 64);
+      ctx.clearRect(0, 0, 256, 128);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      ctx.fillRect(0, 0, 256, 128);
       
-      // Timer text
+      // Direction label at top
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 28px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(directionName, 128, 35);
+      
+      // Timer text below
       const timeRemaining = light.Timer || 0;
       ctx.fillStyle = light.Couleur === 'RED' ? '#ff4444' : 
                       light.Couleur === 'YELLOW' ? '#ffff44' : '#44ff44';
-      ctx.font = 'bold 36px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(Math.ceil(timeRemaining).toString(), 64, 32);
+      ctx.font = 'bold 48px Arial';
+      ctx.fillText(Math.ceil(timeRemaining).toString() + 's', 128, 88);
       
       timerTexture.needsUpdate = true;
     });
