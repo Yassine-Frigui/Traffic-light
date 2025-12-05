@@ -592,6 +592,15 @@ export default function ThreeScene() {
       // Move
       v.currentPosition += v.currentSpeed * dt;
     });
+
+    // Remove vehicles that have gone too far past the intersection
+    const REMOVAL_DISTANCE = 120; // Remove vehicles that have traveled more than 120 units past stop line
+    Object.keys(localVehicles).forEach(id => {
+      const vehicle = localVehicles[id];
+      if (vehicle.currentPosition > STOP_LINE + REMOVAL_DISTANCE) {
+        delete localVehicles[id];
+      }
+    });
   }
 
   function updateVehicleMeshes(localVehicles, scene, vehiclesRef) {

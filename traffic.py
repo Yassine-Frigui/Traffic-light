@@ -145,7 +145,7 @@ def generate_state():
             vehicles.append(make_vehicle(
                 id=vehicle_counter,
                 direction=t["direction"],
-                lane=random.randint(1, 2),
+                lane=1,
                 position=random.uniform(-50, 30), 
                 speed=random.uniform(8, 15)
             ))
