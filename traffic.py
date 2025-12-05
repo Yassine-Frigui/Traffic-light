@@ -203,29 +203,24 @@ async def broadcast(state):
     await asyncio.gather(*tasks, return_exceptions=True)
 
 async def state_loop():
-    """Generate new state every INTERVAL seconds and broadcast light changes."""
+    """Generate new state every INTERVAL seconds and broadcast light timer updates."""
     global current_state
     
-    # Track last colors to avoid duplicate broadcasts
+    # Track last colors and timer displays to avoid duplicate broadcasts
     last_colors = {d: traffic_controller.lights[d]['color'] for d in ['N', 'S', 'E', 'W']}
+    last_displayed_timers = {d: int(traffic_controller.lights[d]['timer']) for d in ['N', 'S', 'E', 'W']}
     state_loop.elapsed = 0
 
     # Initial broadcast
     await broadcast(current_state)
     
     while True:
-        # Calculate time until next light change; ensure a small minimum step to avoid tight loops
-        min_timer = min(max(traffic_controller.lights[d]['timer'], 0.0) for d in ['N', 'S', 'E', 'W'])
-        remaining_interval = INTERVAL - state_loop.elapsed
-        sleep_time = min(min_timer, remaining_interval)
-        if sleep_time < 0.05:
-            sleep_time = 0.05
+        # Sleep 0.1 seconds per iteration (smooth updates, low overhead)
+        await asyncio.sleep(0.1)
+        state_loop.elapsed += 0.1
         
-        await asyncio.sleep(sleep_time)
-        state_loop.elapsed += sleep_time
-        
-        # Update traffic controller by the slept time
-        traffic_controller.update(sleep_time)
+        # Update traffic controller
+        traffic_controller.update(0.1)
         
         # If interval elapsed, regenerate full state (vehicles + lights)
         if state_loop.elapsed >= INTERVAL:
@@ -234,13 +229,20 @@ async def state_loop():
             event_name = current_state["Event"]["name"] if current_state["Event"] else "Normal"
             print(f"New state: {event_name} traffic, {len(current_state['Vehicles'])} vehicles")
             await broadcast(current_state)
-            # Reset color cache after regeneration
+            # Reset tracking after regeneration
             last_colors = {d: traffic_controller.lights[d]['color'] for d in ['N', 'S', 'E', 'W']}
+            last_displayed_timers = {d: int(traffic_controller.lights[d]['timer']) for d in ['N', 'S', 'E', 'W']}
             continue
         
-        # Only broadcast if colors actually changed
+        # Check if colors changed OR if displayed timer changed (for any direction)
         current_colors = {d: traffic_controller.lights[d]['color'] for d in ['N', 'S', 'E', 'W']}
-        if current_colors != last_colors:
+        current_displayed_timers = {d: int(traffic_controller.lights[d]['timer']) for d in ['N', 'S', 'E', 'W']}
+        
+        colors_changed = current_colors != last_colors
+        timers_changed = current_displayed_timers != last_displayed_timers
+        
+        if colors_changed or timers_changed:
+            # Update lights in current state with latest timers
             current_state["Lights"] = [
                 make_light(d, traffic_controller.lights[d]['color'], 
                            max(0, traffic_controller.lights[d]['timer']))
@@ -248,8 +250,12 @@ async def state_loop():
             ]
             current_state["Reset"] = False
             await broadcast(current_state)
+            
             last_colors = current_colors
-            print(f"Light change: {[(d, current_colors[d]) for d in ['N', 'S', 'E', 'W']]}")
+            last_displayed_timers = current_displayed_timers
+            
+            if colors_changed:
+                print(f"Light change: {[(d, current_colors[d]) for d in ['N', 'S', 'E', 'W']]}")
 
 async def init_app():
     app = web.Application()
