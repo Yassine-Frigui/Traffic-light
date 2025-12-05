@@ -145,7 +145,7 @@ def generate_state():
             vehicles.append(make_vehicle(
                 id=vehicle_counter,
                 direction=t["direction"],
-                lane=1,
+                lane=1,  # Single lane per direction
                 position=random.uniform(-50, 30), 
                 speed=random.uniform(8, 15)
             ))
@@ -155,7 +155,8 @@ def generate_state():
         "Vehicles": vehicles,
         "Traffic": traffic,
         "Event": event,
-        "Interval": INTERVAL
+        "Interval": INTERVAL,
+        "Reset": True  # Signal to frontend to clear old vehicles
     }
 
 # ============================================================================
@@ -201,31 +202,48 @@ async def broadcast(state):
     # Use gather to run them concurrently
     await asyncio.gather(*tasks, return_exceptions=True)
 
-async def light_update_loop():
-    """Update traffic lights every second and broadcast."""
-    global current_state
-    while True:
-        await asyncio.sleep(1)  # Update every second
-        # Update traffic controller
-        traffic_controller.update(1)
-        # Update lights in current state
-        current_state["Lights"] = [
-            make_light(d, traffic_controller.lights[d]['color'], 
-                       max(0, traffic_controller.lights[d]['timer']))
-            for d in ['N', 'S', 'E', 'W']
-        ]
-        # Broadcast updated state
-        await broadcast(current_state)
-
 async def state_loop():
-    """Generate new state every INTERVAL seconds."""
+    """Generate new state every INTERVAL seconds and broadcast light changes."""
     global current_state
+    
+    # Initial broadcast
+    await broadcast(current_state)
+    
     while True:
-        await asyncio.sleep(INTERVAL)
-        current_state = generate_state()
-        event_name = current_state["Event"]["name"] if current_state["Event"] else "Normal"
-        print(f"New state: {event_name} traffic, {len(current_state['Vehicles'])} vehicles")
-        await broadcast(current_state)
+        # Calculate when the next light change will occur
+        min_timer = min(traffic_controller.lights[d]['timer'] for d in ['N', 'S', 'E', 'W'])
+        
+        # Sleep until next light change (or INTERVAL for vehicle reset, whichever comes first)
+        sleep_time = min(min_timer, INTERVAL - (0 if not hasattr(state_loop, 'elapsed') else state_loop.elapsed))
+        
+        if not hasattr(state_loop, 'elapsed'):
+            state_loop.elapsed = 0
+        
+        if sleep_time > 0:
+            await asyncio.sleep(sleep_time)
+            state_loop.elapsed += sleep_time
+        
+        # Update traffic controller by the time we slept
+        traffic_controller.update(sleep_time)
+        
+        # Check if it's time to generate new vehicle state
+        if state_loop.elapsed >= INTERVAL:
+            state_loop.elapsed = 0
+            current_state = generate_state()
+            event_name = current_state["Event"]["name"] if current_state["Event"] else "Normal"
+            print(f"New state: {event_name} traffic, {len(current_state['Vehicles'])} vehicles")
+            await broadcast(current_state)
+        else:
+            # Light color changed, broadcast update
+            current_state["Lights"] = [
+                make_light(d, traffic_controller.lights[d]['color'], 
+                           max(0, traffic_controller.lights[d]['timer']))
+                for d in ['N', 'S', 'E', 'W']
+            ]
+            current_state["Reset"] = False
+            await broadcast(current_state)
+            colors = {d: traffic_controller.lights[d]['color'] for d in ['N', 'S', 'E', 'W']}
+            print(f"Light change: {[(d, colors[d]) for d in ['N', 'S', 'E', 'W']]}")
 
 async def init_app():
     app = web.Application()
@@ -249,11 +267,8 @@ async def main():
     
     print("Server ready!")
     
-    # Run both loops concurrently
-    await asyncio.gather(
-        light_update_loop(),
-        state_loop()
-    )
+    # Run state loop
+    await state_loop()
 
 if __name__ == "__main__":
     asyncio.run(main())

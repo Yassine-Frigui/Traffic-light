@@ -76,9 +76,11 @@ export default function ThreeScene() {
           sceneDataRef.current.simulationData = data;
           sceneDataRef.current.lastPacketTime = performance.now();
           
-          // Update local vehicle state from server data (only add new vehicles, don't reset existing ones)
+          // Update local vehicle state from server data
           if (data.Vehicles) {
-            const existingVehicles = sceneDataRef.current.localVehicles || {};
+            // If Reset flag is true, clear all vehicles and start fresh
+            const shouldReset = data.Reset === true;
+            const existingVehicles = shouldReset ? {} : (sceneDataRef.current.localVehicles || {});
             const newLocalVehicles = { ...existingVehicles };
             
             data.Vehicles.forEach(v => {
@@ -470,11 +472,10 @@ export default function ThreeScene() {
       
       const { bulbs, timerCanvas, timerTexture, directionName } = lightRef;
       
-      // Update local light state from server data (Python handles state transitions)
+      // Update local light state from server data (Backend handles all timing)
       localLights[direction] = {
         color: light.Couleur,
-        timer: light.Timer || 0,
-        transitioning: false
+        timer: light.Timer || 0
       };
       
       const localLight = localLights[direction];
@@ -493,7 +494,7 @@ export default function ThreeScene() {
         bulbs.green.material.color.setHex(0x00ff00);
       }
       
-      // Update timer and direction display
+      // Update timer display
       const displayTime = Math.ceil(localLight.timer);
       
       if (lightRef.lastDisplayedTimer !== displayTime) {
@@ -559,8 +560,10 @@ export default function ThreeScene() {
 
       // 1. Traffic Light Logic
       // If light is RED or YELLOW, and we haven't passed the stop line yet, stop
+      // BUT: if we're already past the stop line, continue through (don't stop in intersection)
       if ((lightColor === 'RED' || lightColor === 'YELLOW') && 
-          v.currentPosition < STOP_LINE) {
+          v.currentPosition < STOP_LINE && 
+          v.currentPosition < STOP_LINE - 2) { // Give 2 unit buffer to prevent stopping at line
         shouldStop = true;
       }
 
