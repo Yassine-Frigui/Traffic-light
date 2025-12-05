@@ -76,18 +76,26 @@ export default function ThreeScene() {
           sceneDataRef.current.simulationData = data;
           sceneDataRef.current.lastPacketTime = performance.now();
           
-          // Initialize local vehicle state from server data
+          // Update local vehicle state from server data (only add new vehicles, don't reset existing ones)
           if (data.Vehicles) {
-            const newLocalVehicles = {};
+            const existingVehicles = sceneDataRef.current.localVehicles || {};
+            const newLocalVehicles = { ...existingVehicles };
+            
             data.Vehicles.forEach(v => {
               if (!v.Id || !v.Sens || !['N','S','E','W'].includes(v.Sens)) return; // Skip invalid vehicles
-              newLocalVehicles[v.Id] = {
-                ...v,
-                currentPosition: v.Position || 0,
-                currentSpeed: v.Speed || 0,
-                waiting: false
-              };
+              
+              // Only update if this is a new vehicle or if we don't have it yet
+              if (!newLocalVehicles[v.Id]) {
+                newLocalVehicles[v.Id] = {
+                  ...v,
+                  currentPosition: v.Position || 0,
+                  currentSpeed: v.Speed || 0,
+                  waiting: false
+                };
+              }
+              // Don't update position/speed for existing vehicles - let local physics handle that
             });
+            
             sceneDataRef.current.localVehicles = newLocalVehicles;
           }
 
@@ -523,9 +531,9 @@ export default function ThreeScene() {
       return light ? light.color : 'GREEN';
     };
 
-    // Stop line is right before the intersection (where traffic lights are at position 14)
-    // Vehicles should stop at position ~36 (which maps to z = 50 - 36 = 14 for N direction)
-    const STOP_LINE = 36; // Position where cars should stop (just before the traffic light)
+    // Stop line is right before the traffic lights (at LIGHT_DISTANCE = 14)
+    // For all directions, vehicles should stop at currentPos = 64
+    const STOP_LINE = 64; // Position where cars should stop (just before the traffic light)
     const SAFE_DISTANCE = 5; // Minimum distance between cars
 
     // Convert object to array for sorting
