@@ -11,9 +11,6 @@ const CONFIG = {
   ROAD_LENGTH: 120,
   ROAD_HEIGHT: 0.2,
   
-  // Roundabout
-  ROUNDABOUT_RADIUS: 6,
-  
   // Traffic lights
   LIGHT_DISTANCE: 14,  // Distance from center
   LANE_OFFSET: 2.5,    // Lane offset from center line
@@ -44,7 +41,8 @@ export default function ThreeScene() {
     vehicles: {},        // id -> mesh
     simulationData: null,
     lastPacketTime: 0,
-    localVehicles: {}    // id -> { position, speed, lane, direction, waiting }
+    localVehicles: {},   // id -> { position, speed, lane, direction, waiting }
+    localLights: {}      // direction -> { color, timer, transitioning }
   });
   
   const [connected, setConnected] = useState(false);
@@ -91,6 +89,19 @@ export default function ThreeScene() {
               };
             });
             sceneDataRef.current.localVehicles = newLocalVehicles;
+          }
+
+          // Initialize local light state from server data
+          if (data.Lights) {
+            const newLocalLights = {};
+            data.Lights.forEach(light => {
+              newLocalLights[light.Sens] = {
+                color: light.Couleur,
+                timer: light.Timer || 0,
+                transitioning: false
+              };
+            });
+            sceneDataRef.current.localLights = newLocalLights;
           }
 
           // Update HUD state
@@ -187,7 +198,6 @@ export default function ThreeScene() {
     // Build the scene
     buildGround(scene);
     buildRoads(scene);
-    buildRoundabout(scene);
     buildTrafficLights(scene, sceneDataRef.current.trafficLights);
     
     // Camera controls (drag to rotate)
@@ -244,10 +254,10 @@ export default function ThreeScene() {
         // Calculate delta time for this frame
         const elapsedTotal = (now - sceneDataRef.current.lastPacketTime) / 1000;
         
-        updateTrafficLights(data.Lights, sceneDataRef.current.trafficLights, elapsedTotal);
+        updateTrafficLights(data.Lights, sceneDataRef.current.trafficLights, sceneDataRef.current.localLights, elapsedTotal);
         
         // Run physics simulation step
-        updateVehiclesPhysics(dt, data.Lights, sceneDataRef.current.localVehicles);
+        updateVehiclesPhysics(dt, data.Lights, sceneDataRef.current.localVehicles, sceneDataRef.current.localLights);
         
         // Update meshes based on local physics state
         updateVehicleMeshes(sceneDataRef.current.localVehicles, scene, sceneDataRef.current.vehicles);
@@ -309,7 +319,6 @@ export default function ThreeScene() {
     // Center line markings (dashed)
     const dashGeo = new THREE.BoxGeometry(3, 0.05, 0.3);
     for (let i = -25; i <= 25; i += 4) {
-      if (Math.abs(i) < 6) continue; // Skip roundabout area
       // Horizontal dashes
       const hDash = new THREE.Mesh(dashGeo, lineMat);
       hDash.position.set(i * 2, ROAD_HEIGHT + 0.05, 0);
@@ -318,50 +327,12 @@ export default function ThreeScene() {
     
     const vDashGeo = new THREE.BoxGeometry(0.3, 0.05, 3);
     for (let i = -25; i <= 25; i += 4) {
-      if (Math.abs(i) < 6) continue;
       // Vertical dashes
       const vDash = new THREE.Mesh(vDashGeo, lineMat);
       vDash.position.set(0, ROAD_HEIGHT + 0.05, i * 2);
       scene.add(vDash);
     }
   }
-  
-  function buildRoundabout(scene) {
-    const { ROUNDABOUT_RADIUS, ROAD_HEIGHT } = CONFIG;
-    
-    // Main roundabout island
-    const islandGeo = new THREE.CylinderGeometry(ROUNDABOUT_RADIUS, ROUNDABOUT_RADIUS, 0.8, 48);
-    const islandMat = new THREE.MeshLambertMaterial({ color: '#90EE90' }); // Light green
-    const island = new THREE.Mesh(islandGeo, islandMat);
-    island.position.y = ROAD_HEIGHT + 0.4;
-    island.castShadow = true;
-    island.receiveShadow = true;
-    scene.add(island);
-    
-    // Curb ring
-    const curbGeo = new THREE.TorusGeometry(ROUNDABOUT_RADIUS + 0.5, 0.3, 16, 48);
-    const curbMat = new THREE.MeshLambertMaterial({ color: '#808080' });
-    const curb = new THREE.Mesh(curbGeo, curbMat);
-    curb.rotation.x = Math.PI / 2;
-    curb.position.y = ROAD_HEIGHT + 0.3;
-    scene.add(curb);
-    
-    // Decorative center tree
-    const trunkGeo = new THREE.CylinderGeometry(0.4, 0.5, 3, 12);
-    const trunkMat = new THREE.MeshLambertMaterial({ color: '#8B4513' });
-    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-    trunk.position.y = ROAD_HEIGHT + 2.2;
-    trunk.castShadow = true;
-    scene.add(trunk);
-    
-    const foliageGeo = new THREE.SphereGeometry(2.5, 16, 12);
-    const foliageMat = new THREE.MeshLambertMaterial({ color: '#228B22' });
-    const foliage = new THREE.Mesh(foliageGeo, foliageMat);
-    foliage.position.y = ROAD_HEIGHT + 5;
-    foliage.castShadow = true;
-    scene.add(foliage);
-  }
-  
   function buildTrafficLights(scene, trafficLightsRef) {
     const { LIGHT_DISTANCE, LANE_OFFSET, ROAD_HEIGHT } = CONFIG;
     
@@ -481,7 +452,7 @@ export default function ThreeScene() {
   // ==========================================================================
   //  Update Functions
   // ==========================================================================
-  function updateTrafficLights(lightsData, trafficLightsRef, elapsed) {
+  function updateTrafficLights(lightsData, trafficLightsRef, localLights, elapsed) {
     if (!lightsData || !Array.isArray(lightsData)) return;
     
     lightsData.forEach(light => {
@@ -491,24 +462,57 @@ export default function ThreeScene() {
       
       const { bulbs, timerCanvas, timerTexture, directionName } = lightRef;
       
+      // Get or initialize local light state
+      if (!localLights[direction]) {
+        localLights[direction] = {
+          color: light.Couleur,
+          timer: light.Timer || 0,
+          transitioning: false
+        };
+      }
+      
+      const localLight = localLights[direction];
+      
+      // Decrement timer
+      localLight.timer = Math.max(0, localLight.timer - elapsed);
+      
+      // Handle transitions when timer reaches 0
+      if (localLight.timer <= 0 && !localLight.transitioning) {
+        if (localLight.color === 'RED') {
+          // Red -> Yellow for 3 seconds
+          localLight.color = 'YELLOW';
+          localLight.timer = 3;
+          localLight.transitioning = true;
+        } else if (localLight.color === 'GREEN') {
+          // Green -> Red
+          localLight.color = 'RED';
+          localLight.timer = light.Timer || 30; // Reset to original timer
+          localLight.transitioning = false;
+        } else if (localLight.color === 'YELLOW') {
+          // Yellow -> Green (after red transition)
+          localLight.color = 'GREEN';
+          localLight.timer = light.Timer || 30; // Reset to original timer
+          localLight.transitioning = false;
+        }
+      }
+      
       // Reset all bulbs to dim
       bulbs.red.material.color.setHex(0x330000);
       bulbs.yellow.material.color.setHex(0x333300);
       bulbs.green.material.color.setHex(0x003300);
       
       // Light up active bulb
-      if (light.Couleur === 'RED') {
+      if (localLight.color === 'RED') {
         bulbs.red.material.color.setHex(0xff0000);
-      } else if (light.Couleur === 'YELLOW') {
+      } else if (localLight.color === 'YELLOW') {
         bulbs.yellow.material.color.setHex(0xffff00);
-      } else if (light.Couleur === 'GREEN') {
+      } else if (localLight.color === 'GREEN') {
         bulbs.green.material.color.setHex(0x00ff00);
       }
       
       // Update timer and direction display
       // Only update texture if the integer second has changed to avoid performance issues
-      const timeRemaining = Math.max(0, (light.Timer || 0) - elapsed);
-      const displayTime = Math.ceil(timeRemaining);
+      const displayTime = Math.ceil(localLight.timer);
       
       if (lightRef.lastDisplayedTimer !== displayTime) {
         lightRef.lastDisplayedTimer = displayTime;
@@ -526,8 +530,8 @@ export default function ThreeScene() {
         ctx.fillText(directionName, 128, 35);
         
         // Timer text below
-        ctx.fillStyle = light.Couleur === 'RED' ? '#ff4444' : 
-                        light.Couleur === 'YELLOW' ? '#ffff44' : '#44ff44';
+        ctx.fillStyle = localLight.color === 'RED' ? '#ff4444' : 
+                        localLight.color === 'YELLOW' ? '#ffff44' : '#44ff44';
         ctx.font = 'bold 48px Arial';
         ctx.fillText(displayTime.toString() + 's', 128, 88);
         
@@ -536,13 +540,13 @@ export default function ThreeScene() {
     });
   }
   
-  function updateVehiclesPhysics(dt, lightsData, localVehicles) {
+  function updateVehiclesPhysics(dt, lightsData, localVehicles, localLights) {
     if (!localVehicles) return;
 
     // Helper to get light color for a direction
     const getLightColor = (dir) => {
-      const light = lightsData.find(l => l.Sens === dir);
-      return light ? light.Couleur : 'GREEN';
+      const light = localLights[dir];
+      return light ? light.color : 'GREEN';
     };
 
     const STOP_LINE = -12; // Distance from center where cars should stop
