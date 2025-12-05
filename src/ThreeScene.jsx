@@ -462,39 +462,14 @@ export default function ThreeScene() {
       
       const { bulbs, timerCanvas, timerTexture, directionName } = lightRef;
       
-      // Get or initialize local light state
-      if (!localLights[direction]) {
-        localLights[direction] = {
-          color: light.Couleur,
-          timer: light.Timer || 0,
-          transitioning: false
-        };
-      }
+      // Update local light state from server data (Python handles state transitions)
+      localLights[direction] = {
+        color: light.Couleur,
+        timer: light.Timer || 0,
+        transitioning: false
+      };
       
       const localLight = localLights[direction];
-      
-      // Decrement timer
-      localLight.timer = Math.max(0, localLight.timer - elapsed);
-      
-      // Handle transitions when timer reaches 0
-      if (localLight.timer <= 0 && !localLight.transitioning) {
-        if (localLight.color === 'RED') {
-          // Red -> Yellow for 3 seconds
-          localLight.color = 'YELLOW';
-          localLight.timer = 3;
-          localLight.transitioning = true;
-        } else if (localLight.color === 'GREEN') {
-          // Green -> Red
-          localLight.color = 'RED';
-          localLight.timer = light.Timer || 30; // Reset to original timer
-          localLight.transitioning = false;
-        } else if (localLight.color === 'YELLOW') {
-          // Yellow -> Green (after red transition)
-          localLight.color = 'GREEN';
-          localLight.timer = light.Timer || 30; // Reset to original timer
-          localLight.transitioning = false;
-        }
-      }
       
       // Reset all bulbs to dim
       bulbs.red.material.color.setHex(0x330000);
@@ -511,7 +486,6 @@ export default function ThreeScene() {
       }
       
       // Update timer and direction display
-      // Only update texture if the integer second has changed to avoid performance issues
       const displayTime = Math.ceil(localLight.timer);
       
       if (lightRef.lastDisplayedTimer !== displayTime) {
@@ -549,9 +523,10 @@ export default function ThreeScene() {
       return light ? light.color : 'GREEN';
     };
 
-    const STOP_LINE = -12; // Distance from center where cars should stop
-    const INTERSECTION_EXIT = 12; // Distance where cars are clear of intersection
-    const SAFE_DISTANCE = 6; // Minimum distance between cars
+    // Stop line is right before the intersection (where traffic lights are at position 14)
+    // Vehicles should stop at position ~36 (which maps to z = 50 - 36 = 14 for N direction)
+    const STOP_LINE = 36; // Position where cars should stop (just before the traffic light)
+    const SAFE_DISTANCE = 5; // Minimum distance between cars
 
     // Convert object to array for sorting
     const vehicles = Object.values(localVehicles);
@@ -572,14 +547,12 @@ export default function ThreeScene() {
     // Update each vehicle
     vehicles.forEach(v => {
       const lightColor = getLightColor(v.Sens);
-      let targetSpeed = v.Speed;
       let shouldStop = false;
 
       // 1. Traffic Light Logic
-      // If light is RED or YELLOW, and we are approaching the stop line
+      // If light is RED or YELLOW, and we haven't passed the stop line yet, stop
       if ((lightColor === 'RED' || lightColor === 'YELLOW') && 
-          v.currentPosition < STOP_LINE && 
-          v.currentPosition > STOP_LINE - 30) { // Only stop if we are close enough
+          v.currentPosition < STOP_LINE) {
         shouldStop = true;
       }
 
@@ -594,22 +567,17 @@ export default function ThreeScene() {
         
         if (distanceToCarAhead < SAFE_DISTANCE) {
           shouldStop = true;
-          // Match speed of car ahead if we are too close but not stopped?
-          // For simplicity, just stop/go logic
-        } else if (distanceToCarAhead < SAFE_DISTANCE * 2) {
-          // Slow down
-          targetSpeed = Math.min(targetSpeed, carAhead.currentSpeed);
         }
       }
 
       // Apply physics
       if (shouldStop) {
-        // Decelerate
-        v.currentSpeed = Math.max(0, v.currentSpeed - 20 * dt);
+        // Decelerate smoothly
+        v.currentSpeed = Math.max(0, v.currentSpeed - 15 * dt);
         v.waiting = true;
       } else {
-        // Accelerate
-        v.currentSpeed = Math.min(v.Speed, v.currentSpeed + 10 * dt);
+        // Accelerate to target speed
+        v.currentSpeed = Math.min(v.Speed, v.currentSpeed + 8 * dt);
         v.waiting = false;
       }
 

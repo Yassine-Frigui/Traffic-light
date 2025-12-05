@@ -27,6 +27,68 @@ def make_vehicle(id, direction, lane, position, speed):
     """Vehicle record: Id, Sens, Voie (Lane1/Lane2), Position, Speed"""
     return {"Id": id, "Sens": direction, "Voie": f"Lane{lane}", "Position": position, "Speed": speed, "Waiting": False}
 
+# ============================================================================
+#  TRAFFIC LIGHT STATE MACHINE
+# ============================================================================
+
+class TrafficLightController:
+    """Manages traffic light states with proper transitions."""
+    
+    def __init__(self):
+        # Initial state: N/S green, E/W red
+        self.lights = {
+            'N': {'color': 'GREEN', 'timer': 30},
+            'S': {'color': 'GREEN', 'timer': 30},
+            'E': {'color': 'RED', 'timer': 30},
+            'W': {'color': 'RED', 'timer': 30},
+        }
+        self.green_duration = 30  # seconds
+        self.yellow_duration = 3   # seconds
+    
+    def update(self, dt):
+        """Update all lights by dt seconds. Returns list of light records."""
+        # Decrement timers
+        for direction in self.lights:
+            self.lights[direction]['timer'] -= dt
+        
+        # Check for transitions (use N as reference for N/S pair, E for E/W pair)
+        self._check_transition('N', 'S', 'E', 'W')
+        self._check_transition('E', 'W', 'N', 'S')
+        
+        # Return current state as records
+        return [
+            make_light(d, self.lights[d]['color'], max(0, self.lights[d]['timer']))
+            for d in ['N', 'S', 'E', 'W']
+        ]
+    
+    def _check_transition(self, dir1, dir2, opp1, opp2):
+        """Check and handle transition for a pair of lights."""
+        light = self.lights[dir1]
+        
+        if light['timer'] <= 0:
+            if light['color'] == 'GREEN':
+                # GREEN -> YELLOW (3 seconds)
+                self.lights[dir1]['color'] = 'YELLOW'
+                self.lights[dir2]['color'] = 'YELLOW'
+                self.lights[dir1]['timer'] = self.yellow_duration
+                self.lights[dir2]['timer'] = self.yellow_duration
+            
+            elif light['color'] == 'YELLOW':
+                # YELLOW -> RED, and opposite goes GREEN
+                self.lights[dir1]['color'] = 'RED'
+                self.lights[dir2]['color'] = 'RED'
+                self.lights[dir1]['timer'] = self.green_duration + self.yellow_duration
+                self.lights[dir2]['timer'] = self.green_duration + self.yellow_duration
+                
+                # Opposite pair goes green
+                self.lights[opp1]['color'] = 'GREEN'
+                self.lights[opp2]['color'] = 'GREEN'
+                self.lights[opp1]['timer'] = self.green_duration
+                self.lights[opp2]['timer'] = self.green_duration
+
+# Global traffic light controller
+traffic_controller = TrafficLightController()
+
 def make_traffic(direction, flow, event=None):
     """Traffic record: direction, flow (vehicles/min), optional event"""
     return {"direction": direction, "flow": flow, "event": event}
@@ -65,13 +127,11 @@ def generate_state():
         make_traffic("W", int(base_flow * flow_mult * random.uniform(0.8, 1.2)), event),
     ]
     
-    # Lights: N/S green, E/W red (or vice versa)
-    ns_green = random.choice([True, False])
+    # Get current light states from controller (don't update here, just get current)
     lights = [
-        make_light("N", "GREEN" if ns_green else "RED", random.randint(20, 40)),
-        make_light("S", "GREEN" if ns_green else "RED", random.randint(20, 40)),
-        make_light("E", "RED" if ns_green else "GREEN", random.randint(20, 40)),
-        make_light("W", "RED" if ns_green else "GREEN", random.randint(20, 40)),
+        make_light(d, traffic_controller.lights[d]['color'], 
+                   max(0, traffic_controller.lights[d]['timer']))
+        for d in ['N', 'S', 'E', 'W']
     ]
     
     # Vehicles: spawn based on flow
@@ -80,14 +140,13 @@ def generate_state():
         count = max(1, t["flow"])  # Use full flow count
         for i in range(count):
             vehicle_counter += 1
-            # Spawn vehicles spread out over a shorter distance to arrive closer
-            # Speed is approx 10-15 m/s. 20s * 15m/s = 300m.
-            # We spawn them from -100 to 20 so they arrive continuously.
+            # Spawn vehicles closer to intersection
+            # Position range: -50 to 30 (negative = approaching, positive = past stop line)
             vehicles.append(make_vehicle(
                 id=vehicle_counter,
                 direction=t["direction"],
                 lane=random.randint(1, 2),
-                position=random.uniform(-100, 20), 
+                position=random.uniform(-50, 30), 
                 speed=random.uniform(8, 15)
             ))
     
@@ -142,6 +201,22 @@ async def broadcast(state):
     # Use gather to run them concurrently
     await asyncio.gather(*tasks, return_exceptions=True)
 
+async def light_update_loop():
+    """Update traffic lights every second and broadcast."""
+    global current_state
+    while True:
+        await asyncio.sleep(1)  # Update every second
+        # Update traffic controller
+        traffic_controller.update(1)
+        # Update lights in current state
+        current_state["Lights"] = [
+            make_light(d, traffic_controller.lights[d]['color'], 
+                       max(0, traffic_controller.lights[d]['timer']))
+            for d in ['N', 'S', 'E', 'W']
+        ]
+        # Broadcast updated state
+        await broadcast(current_state)
+
 async def state_loop():
     """Generate new state every INTERVAL seconds."""
     global current_state
@@ -174,8 +249,11 @@ async def main():
     
     print("Server ready!")
     
-    # Run state loop
-    await state_loop()
+    # Run both loops concurrently
+    await asyncio.gather(
+        light_update_loop(),
+        state_loop()
+    )
 
 if __name__ == "__main__":
     asyncio.run(main())
