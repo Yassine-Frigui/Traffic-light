@@ -108,7 +108,7 @@ export default function ThreeScene() {
               newLocalLights[light.Sens] = {
                 color: light.Couleur,
                 timer: light.Timer || 0,
-                transitioning: false
+                lastUpdateTime: performance.now()  // Track when this was last updated
               };
             });
             sceneDataRef.current.localLights = newLocalLights;
@@ -264,7 +264,7 @@ export default function ThreeScene() {
         // Calculate delta time for this frame
         const elapsedTotal = (now - sceneDataRef.current.lastPacketTime) / 1000;
         
-        updateTrafficLights(data.Lights, sceneDataRef.current.trafficLights, sceneDataRef.current.localLights, elapsedTotal);
+        updateTrafficLights(sceneDataRef.current.trafficLights, sceneDataRef.current.localLights, elapsedTotal);
         
         // Run physics simulation step
         updateVehiclesPhysics(dt, data.Lights, sceneDataRef.current.localVehicles, sceneDataRef.current.localLights);
@@ -462,23 +462,22 @@ export default function ThreeScene() {
   // ==========================================================================
   //  Update Functions
   // ==========================================================================
-  function updateTrafficLights(lightsData, trafficLightsRef, localLights, elapsed) {
-    if (!lightsData || !Array.isArray(lightsData)) return;
+  function updateTrafficLights(trafficLightsRef, localLights, elapsed) {
+    if (!localLights) return;
     
-    lightsData.forEach(light => {
-      const direction = light.Sens;
+    Object.keys(localLights).forEach(direction => {
       const lightRef = trafficLightsRef[direction];
       if (!lightRef) return;
       
       const { bulbs, timerCanvas, timerTexture, directionName } = lightRef;
       
-      // Update local light state from server data (Backend handles all timing)
-      localLights[direction] = {
-        color: light.Couleur,
-        timer: light.Timer || 0
-      };
-      
       const localLight = localLights[direction];
+      
+      // Decrement timer locally for smooth countdown display
+      if (localLight.timer > 0) {
+        localLight.timer -= elapsed;
+        if (localLight.timer < 0) localLight.timer = 0;
+      }
       
       // Reset all bulbs to dim
       bulbs.red.material.color.setHex(0x330000);
