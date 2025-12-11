@@ -473,11 +473,7 @@ export default function ThreeScene() {
       
       const localLight = localLights[direction];
       
-      // Decrement timer locally for smooth countdown display
-      if (localLight.timer > 0) {
-        localLight.timer -= elapsed;
-        if (localLight.timer < 0) localLight.timer = 0;
-      }
+      // No local decrement - display backend timer directly
       
       // Reset all bulbs to dim
       bulbs.red.material.color.setHex(0x330000);

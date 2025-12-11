@@ -216,11 +216,11 @@ async def state_loop():
     
     while True:
         # Sleep 0.1 seconds per iteration (smooth updates, low overhead)
-        await asyncio.sleep(1)
-        state_loop.elapsed += 1
+        await asyncio.sleep(0.1)
+        state_loop.elapsed += 0.1
         
         # Update traffic controller
-        traffic_controller.update(1)
+        traffic_controller.update(0.1)
         
         # If interval elapsed, regenerate full state (vehicles + lights)
         if state_loop.elapsed >= INTERVAL:
