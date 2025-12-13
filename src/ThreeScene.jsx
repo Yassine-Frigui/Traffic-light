@@ -43,12 +43,16 @@ export default function ThreeScene() {
     lastPacketTime: 0,
     localVehicles: {},   // id -> { position, speed, lane, direction, waiting }
     localLights: {}      // direction -> { color, timer, transitioning }
+    collisionCount: 0,   // Collision counter
+    dayTime: 0,          // Day time in seconds (0-86400 for 24 hours)
   });
   
   const [connected, setConnected] = useState(false);
   const [events, setEvents] = useState([]);
   const [trafficState, setTrafficState] = useState('Moderate');
   const [activeEvent, setActiveEvent] = useState(null);
+  const [collisionCount, setCollisionCount] = useState(0);
+  const [dayTime, setDayTime] = useState(0);
 
   // ==========================================================================
   //  WebSocket Connection
@@ -78,27 +82,31 @@ export default function ThreeScene() {
           
           // Update local vehicle state from server data
           if (data.Vehicles) {
-            // If Reset flag is true, clear all vehicles and start fresh
-            const shouldReset = data.Reset === true;
-            const existingVehicles = shouldReset ? {} : (sceneDataRef.current.localVehicles || {});
-            const newLocalVehicles = { ...existingVehicles };
+            // If Reset flag is true, mark existing vehicles as fading instead of clearing
+            if (data.Reset === true) {
+              Object.values(sceneDataRef.current.localVehicles).forEach(v => {
+                v.fading = true;
+                v.fadeStart = performance.now();
+              });
+            }
             
             data.Vehicles.forEach(v => {
               if (!v.Id || !v.Sens || !['N','S','E','W'].includes(v.Sens)) return; // Skip invalid vehicles
               
               // Only update if this is a new vehicle or if we don't have it yet
-              if (!newLocalVehicles[v.Id]) {
-                newLocalVehicles[v.Id] = {
+              if (!sceneDataRef.current.localVehicles[v.Id]) {
+                sceneDataRef.current.localVehicles[v.Id] = {
                   ...v,
                   currentPosition: v.Position || 0,
                   currentSpeed: v.Speed || 0,
-                  waiting: false
+                  waiting: false,
+                  fading: false
                 };
               }
               // Don't update position/speed for existing vehicles - let local physics handle that
             });
             
-            sceneDataRef.current.localVehicles = newLocalVehicles;
+            sceneDataRef.current.localVehicles = { ...sceneDataRef.current.localVehicles };
           }
 
           // Initialize local light state from server data
@@ -257,6 +265,19 @@ export default function ThreeScene() {
       requestAnimationFrame(animate);
       const dt = (now - lastTime) / 1000;
       lastTime = now;
+      
+      // Update day/night cycle
+      sceneDataRef.current.dayTime += dt * 100; // Speed up time (100x real time)
+      if (sceneDataRef.current.dayTime >= 86400) sceneDataRef.current.dayTime = 0;
+      setDayTime(sceneDataRef.current.dayTime);
+      
+      // Adjust lighting based on time
+      const hour = (sceneDataRef.current.dayTime / 3600) % 24;
+      const isDay = hour >= 6 && hour <= 18;
+      const intensity = isDay ? 0.8 : 0.2;
+      sun.intensity = intensity;
+      ambient.intensity = isDay ? 0.6 : 0.3;
+      scene.background = new THREE.Color(isDay ? '#87CEEB' : '#191970'); // Sky blue to midnight blue
       
       // Update from simulation data
       const data = sceneDataRef.current.simulationData;
@@ -591,6 +612,19 @@ export default function ThreeScene() {
       v.currentPosition += v.currentSpeed * dt;
     });
 
+    // Check for collisions
+    Object.values(lanes).forEach(laneVehicles => {
+      for (let i = 0; i < laneVehicles.length - 1; i++) {
+        const v1 = laneVehicles[i];
+        const v2 = laneVehicles[i + 1];
+        const distance = Math.abs(v1.currentPosition - v2.currentPosition);
+        if (distance < 1) { // Collision threshold
+          sceneDataRef.current.collisionCount++;
+          setCollisionCount(sceneDataRef.current.collisionCount);
+        }
+      }
+    });
+
     // Remove vehicles that have gone too far past the intersection
     const REMOVAL_DISTANCE = 120; // Remove vehicles that have traveled more than 120 units past stop line
     Object.keys(localVehicles).forEach(id => {
@@ -631,6 +665,21 @@ export default function ThreeScene() {
         roof.position.y = 0.6;
         roof.position.z = -0.3;
         mesh.add(roof);
+      }
+      
+      // Handle fading
+      if (vehicle.fading) {
+        const fadeTime = (performance.now() - vehicle.fadeStart) / 1000;
+        const opacity = Math.max(0, 1 - fadeTime / 2); // Fade over 2 seconds
+        mesh.material.opacity = opacity;
+        mesh.material.transparent = true;
+        if (opacity <= 0) {
+          // Mark for removal
+          vehicle.toRemove = true;
+        }
+      } else {
+        mesh.material.opacity = 1;
+        mesh.material.transparent = false;
       }
       
       // Calculate position based on direction and lane
@@ -680,6 +729,13 @@ export default function ThreeScene() {
         mesh.children[0]?.material?.color?.setHex(0xff0000); // Brake lights
       } else {
         mesh.children[0]?.material?.color?.setHex(0x333333);
+      }
+    });
+    
+    // Remove faded vehicles
+    Object.keys(localVehicles).forEach(id => {
+      if (localVehicles[id].toRemove) {
+        delete localVehicles[id];
       }
     });
     
@@ -744,6 +800,34 @@ export default function ThreeScene() {
         }}>
           <div style={{ fontSize: 12, textTransform: 'uppercase', opacity: 0.7, marginBottom: 4 }}>Traffic State</div>
           <div style={{ fontSize: 24, fontWeight: 'bold' }}>{trafficState}</div>
+        </div>
+
+        {/* Collision Counter */}
+        <div style={{
+          padding: '12px 20px',
+          background: 'rgba(255, 0, 0, 0.9)',
+          color: 'white',
+          borderRadius: 8,
+          fontSize: 16,
+          fontFamily: 'Arial, sans-serif',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+        }}>
+          <div style={{ fontSize: 12, textTransform: 'uppercase', opacity: 0.7, marginBottom: 4 }}>Accidents</div>
+          <div style={{ fontSize: 24, fontWeight: 'bold' }}>{collisionCount}</div>
+        </div>
+
+        {/* Day Time */}
+        <div style={{
+          padding: '12px 20px',
+          background: 'rgba(0, 0, 0, 0.85)',
+          color: 'white',
+          borderRadius: 8,
+          fontSize: 16,
+          fontFamily: 'Arial, sans-serif',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+        }}>
+          <div style={{ fontSize: 12, textTransform: 'uppercase', opacity: 0.7, marginBottom: 4 }}>Time</div>
+          <div style={{ fontSize: 20, fontWeight: 'bold' }}>{Math.floor(dayTime / 3600).toString().padStart(2, '0')}:{Math.floor((dayTime % 3600) / 60).toString().padStart(2, '0')}</div>
         </div>
 
         {/* Active Event HUD */}
