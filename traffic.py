@@ -7,6 +7,7 @@ import asyncio
 import json
 import os
 import random
+import time
 from aiohttp import web
 
 # Config
@@ -20,8 +21,19 @@ INTERVAL = 60  # seconds per state update
 # ============================================================================
 
 def make_light(direction, color, timer):
-    """Light record: Sens (N/S/E/W), Couleur (RED/YELLOW/GREEN), Timer (seconds left)"""
-    return {"Sens": direction, "Couleur": color, "Timer": timer}
+    """Light record: Sens (N/S/E/W), Couleur (RED/YELLOW/GREEN), Timer (seconds left).
+    Also includes TimerMs and ExpiresAt (epoch ms) so clients can interpolate smoothly."""
+    now_ms = int(time.time() * 1000)
+    timer = max(0.0, float(timer))
+    timer_ms = int(timer * 1000)
+    expires_at = now_ms + timer_ms
+    return {
+        "Sens": direction,
+        "Couleur": color,
+        "Timer": timer,
+        "TimerMs": timer_ms,
+        "ExpiresAt": expires_at
+    }
 
 def make_vehicle(id, direction, lane, position, speed):
     """Vehicle record: Id, Sens, Voie (Lane1/Lane2), Position, Speed"""
@@ -135,18 +147,26 @@ def generate_state():
     ]
     
     # Vehicles: spawn based on flow
+    # Place vehicles in queues behind the stop line with spacing to avoid clumping
     vehicles = []
+    STOP_LINE = 64  # Keep consistent with frontend stop line
+    MAX_NEAR = min(30, STOP_LINE - 5)  # nearest vehicle should be at most this position (i.e., before stop line)
     for t in traffic:
-        count = max(1, t["flow"])  # Use full flow count
+        count = max(1, int(t["flow"]))  # Use full flow count
+        # Determine the position of the vehicle closest to the intersection
+        nearest_pos = random.uniform(-10, MAX_NEAR)
         for i in range(count):
             vehicle_counter += 1
-            # Spawn vehicles closer to intersection
-            # Position range: -50 to 30 (negative = approaching, positive = past stop line)
+            # Space vehicles by a safe random gap (6-12 units) to avoid unrealistic clumping
+            spacing = random.uniform(6, 12)
+            pos = nearest_pos - i * spacing
+            # Clamp to reasonable bounds
+            pos = max(pos, -50)
             vehicles.append(make_vehicle(
                 id=vehicle_counter,
                 direction=t["direction"],
-                lane=1,  # Single lane per direction
-                position=random.uniform(-50, 30), 
+                lane=1,
+                position=pos,
                 speed=random.uniform(8, 15)
             ))
     
@@ -156,7 +176,8 @@ def generate_state():
         "Traffic": traffic,
         "Event": event,
         "Interval": INTERVAL,
-        "Reset": True  # Signal to frontend to clear old vehicles
+        "Reset": True,  # Signal to frontend to clear old vehicles
+        "ServerTime": int(time.time() * 1000)
     }
 
 # ============================================================================
@@ -249,6 +270,7 @@ async def state_loop():
                 for d in ['N', 'S', 'E', 'W']
             ]
             current_state["Reset"] = False
+            current_state["ServerTime"] = int(time.time() * 1000)
             await broadcast(current_state)
             
             last_colors = current_colors

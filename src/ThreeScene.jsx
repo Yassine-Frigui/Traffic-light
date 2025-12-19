@@ -42,7 +42,7 @@ export default function ThreeScene() {
     simulationData: null,
     lastPacketTime: 0,
     localVehicles: {},   // id -> { position, speed, lane, direction, waiting }
-    localLights: {}      // direction -> { color, timer, transitioning }
+    localLights: {},   // direction -> { color, timer, transitioning }
     collisionCount: 0,   // Collision counter
     dayTime: 0,          // Day time in seconds (0-86400 for 24 hours)
   });
@@ -112,11 +112,17 @@ export default function ThreeScene() {
           // Initialize local light state from server data
           if (data.Lights) {
             const newLocalLights = {};
+            const serverTime = data.ServerTime || Date.now();
+            // Capture mapping points for interpolation
+            sceneDataRef.current.serverTimeAtLastPacket = serverTime;
+            sceneDataRef.current.clientPerfAtLastPacket = performance.now();
             data.Lights.forEach(light => {
+              // Prefer ExpiresAt (epoch ms); fall back to Timer (seconds)
+              const expiresAt = light.ExpiresAt || (serverTime + (light.Timer || 0) * 1000);
               newLocalLights[light.Sens] = {
                 color: light.Couleur,
-                timer: light.Timer || 0,
-                lastUpdateTime: performance.now()  // Track when this was last updated
+                expiresAt,
+                lastUpdateTime: performance.now()
               };
             });
             sceneDataRef.current.localLights = newLocalLights;
@@ -486,15 +492,19 @@ export default function ThreeScene() {
   function updateTrafficLights(trafficLightsRef, localLights, elapsed) {
     if (!localLights) return;
     
+    // Estimate server-side 'now' using the last server timestamp and client perf time
+    const serverTimeBase = sceneDataRef.current.serverTimeAtLastPacket || Date.now();
+    const clientPerfBase = sceneDataRef.current.clientPerfAtLastPacket || performance.now();
+    const perfNow = performance.now();
+    const estimatedServerNow = serverTimeBase + (perfNow - clientPerfBase);
+    
     Object.keys(localLights).forEach(direction => {
       const lightRef = trafficLightsRef[direction];
       if (!lightRef) return;
       
       const { bulbs, timerCanvas, timerTexture, directionName } = lightRef;
-      
       const localLight = localLights[direction];
-      
-      // No local decrement - display backend timer directly
+      if (!localLight) return;
       
       // Reset all bulbs to dim
       bulbs.red.material.color.setHex(0x330000);
@@ -510,11 +520,12 @@ export default function ThreeScene() {
         bulbs.green.material.color.setHex(0x00ff00);
       }
       
-      // Update timer display
-      const displayTime = Math.ceil(localLight.timer);
+      // Compute remaining time (ms) from expiresAt and the estimated server now
+      const remainingMs = (localLight.expiresAt || 0) - estimatedServerNow;
+      const displayStr = remainingMs > 0 ? (remainingMs / 1000).toFixed(1) + 's' : '0.0s';
       
-      if (lightRef.lastDisplayedTimer !== displayTime) {
-        lightRef.lastDisplayedTimer = displayTime;
+      if (lightRef.lastDisplayedTimer !== displayStr) {
+        lightRef.lastDisplayedTimer = displayStr;
         
         const ctx = timerCanvas.getContext('2d');
         ctx.clearRect(0, 0, 256, 128);
@@ -528,11 +539,11 @@ export default function ThreeScene() {
         ctx.textBaseline = 'middle';
         ctx.fillText(directionName, 128, 35);
         
-        // Timer text below
+        // Timer text below (show fractional seconds)
         ctx.fillStyle = localLight.color === 'RED' ? '#ff4444' : 
                         localLight.color === 'YELLOW' ? '#ffff44' : '#44ff44';
         ctx.font = 'bold 48px Arial';
-        ctx.fillText(displayTime.toString() + 's', 128, 88);
+        ctx.fillText(displayStr, 128, 88);
         
         timerTexture.needsUpdate = true;
       }
