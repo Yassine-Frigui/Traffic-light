@@ -151,14 +151,15 @@ def generate_state():
     vehicles = []
     STOP_LINE = 64  # Keep consistent with frontend stop line
     MAX_NEAR = min(30, STOP_LINE - 5)  # nearest vehicle should be at most this position (i.e., before stop line)
+    MAX_VEHICLES_PER_DIRECTION = 6  # Limit to prevent performance issues
     for t in traffic:
-        count = max(1, int(t["flow"]))  # Use full flow count
+        count = max(1, min(MAX_VEHICLES_PER_DIRECTION, int(t["flow"])))  # Limit vehicle count per direction
         # Determine the position of the vehicle closest to the intersection
         nearest_pos = random.uniform(-10, MAX_NEAR)
         for i in range(count):
             vehicle_counter += 1
-            # Space vehicles by a safe random gap (6-12 units) to avoid unrealistic clumping
-            spacing = random.uniform(6, 12)
+            # Space vehicles by a safe random gap (8-15 units) to avoid unrealistic clumping
+            spacing = random.uniform(8, 15)
             pos = nearest_pos - i * spacing
             # Clamp to reasonable bounds
             pos = max(pos, -50)
@@ -224,13 +225,14 @@ async def broadcast(state):
     await asyncio.gather(*tasks, return_exceptions=True)
 
 async def state_loop():
-    """Generate new state every INTERVAL seconds and broadcast light timer updates."""
+    """Generate new state every INTERVAL seconds and broadcast light timer updates less frequently."""
     global current_state
     
     # Track last colors and timer displays to avoid duplicate broadcasts
     last_colors = {d: traffic_controller.lights[d]['color'] for d in ['N', 'S', 'E', 'W']}
     last_displayed_timers = {d: int(traffic_controller.lights[d]['timer']) for d in ['N', 'S', 'E', 'W']}
     state_loop.elapsed = 0
+    timer_update_elapsed = 0  # Track time since last timer update
 
     # Initial broadcast
     await broadcast(current_state)
@@ -239,6 +241,7 @@ async def state_loop():
         # Sleep 0.1 seconds per iteration (smooth updates, low overhead)
         await asyncio.sleep(0.1)
         state_loop.elapsed += 0.1
+        timer_update_elapsed += 0.1
         
         # Update traffic controller
         traffic_controller.update(0.1)
@@ -253,16 +256,17 @@ async def state_loop():
             # Reset tracking after regeneration
             last_colors = {d: traffic_controller.lights[d]['color'] for d in ['N', 'S', 'E', 'W']}
             last_displayed_timers = {d: int(traffic_controller.lights[d]['timer']) for d in ['N', 'S', 'E', 'W']}
+            timer_update_elapsed = 0
             continue
         
-        # Check if colors changed OR if displayed timer changed (for any direction)
+        # Check if colors changed OR if 1 second has passed since last timer update
         current_colors = {d: traffic_controller.lights[d]['color'] for d in ['N', 'S', 'E', 'W']}
         current_displayed_timers = {d: int(traffic_controller.lights[d]['timer']) for d in ['N', 'S', 'E', 'W']}
         
         colors_changed = current_colors != last_colors
-        timers_changed = current_displayed_timers != last_displayed_timers
+        should_update_timers = timer_update_elapsed >= 1.0  # Update timers every 1 second
         
-        if colors_changed or timers_changed:
+        if colors_changed or should_update_timers:
             # Update lights in current state with latest timers
             current_state["Lights"] = [
                 make_light(d, traffic_controller.lights[d]['color'], 
@@ -275,6 +279,7 @@ async def state_loop():
             
             last_colors = current_colors
             last_displayed_timers = current_displayed_timers
+            timer_update_elapsed = 0  # Reset timer update counter
             
             if colors_changed:
                 print(f"Light change: {[(d, current_colors[d]) for d in ['N', 'S', 'E', 'W']]}")
