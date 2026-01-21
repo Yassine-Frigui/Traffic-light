@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Timed Traffic Turn</title>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: Arial, sans-serif; }
+    .controls {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      display: flex;
+      gap: 10px;
+      z-index: 100;
+    }
+    .btn {
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 8px rgba(0,0,0,0.4);
+    }
+    .btn:active {
+      transform: translateY(0);
+    }
+    .btn-right {
+      background: #e74c3c;
+      color: white;
+    }
+    .btn-left {
+      background: #3498db;
+      color: white;
+    }
+    .btn.active {
+      outline: 3px solid #2ecc71;
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+<body>
+<div class="controls">
+  <button class="btn btn-right active" id="btnRight">→ Right Turn</button>
+  <button class="btn btn-left" id="btnLeft">← Left Turn</button>
+</div>
+<script type="module">
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x202020);
+
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 10, 10);
+camera.lookAt(0, 0, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// Ground
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(40, 40),
+  new THREE.MeshStandardMaterial({ color: 0x404040 })
+);
+ground.rotation.x = -Math.PI / 2;
+scene.add(ground);
+
+// Light
+const light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(5, 10, 5);
+scene.add(light);
+
+// Car
+const car = new THREE.Mesh(
+  new THREE.BoxGeometry(1, 0.5, 2),
+  new THREE.MeshStandardMaterial({ color: 0xff0000 })
+);
+scene.add(car);
+
+// Front marker
+const marker = new THREE.Mesh(
+  new THREE.BoxGeometry(0.3, 0.3, 0.3),
+  new THREE.MeshStandardMaterial({ color: 0x00ff00 })
+);
+marker.position.z = -1.1;
+car.add(marker);
+
+// ---- Movement Logic ----
+let speed = 0.05;
+let rotationSpeed = 0.05;
+let state = "FORWARD"; // FORWARD → ROTATE → EXIT
+let forwardTimer = 0;
+const forwardDuration = 1; // seconds
+const clock = new THREE.Clock();
+let turnType = 'right'; // 'right' or 'left'
+
+// Direction the car is coming FROM (N, E, S, W)
+let direction = 'E';
+
+// Expose `name` as requested (alias for direction)
+var name = direction;
+
+function getTurnSides(dir) {
+  let left = null, right = null;
+  switch (dir) {
+    case 'N':
+      left = 'W';
+      right = 'E';
+      break;
+    case 'E':
+      left = 'N';
+      right = 'S';
+      break;
+    case 'S':
+      left = 'E';
+      right = 'W';
+      break;
+    case 'W':
+      left = 'S';
+      right = 'N';
+      break;
+    default:
+      left = null;
+      right = null;
+  }
+  return { left, right };
+}
+
+const sides = getTurnSides(direction);
+const left = sides.left;
+const right = sides.right;
+
+// Button controls
+const btnRight = document.getElementById('btnRight');
+const btnLeft = document.getElementById('btnLeft');
+btnRight.addEventListener('click', () => {
+  turnType = 'right';
+  btnRight.classList.add('active');
+  btnLeft.classList.remove('active');
+  resetCar();
+});
+
+btnLeft.addEventListener('click', () => {
+  turnType = 'left';
+  btnLeft.classList.add('active');
+  btnRight.classList.remove('active');
+  resetCar();
+});
+
+function resetCar() {
+  car.position.set(0, 0, 0);
+  car.rotation.y = 0;
+  state = "FORWARD";
+  forwardTimer = 0;
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  const delta = clock.getDelta();
+
+  if (state === "FORWARD") {
+    car.position.z -= speed;
+    forwardTimer += delta;
+
+    if (forwardTimer >= forwardDuration) {
+      state = "ROTATE";
+    }
+  }
+
+  else if (state === "ROTATE") {
+    if (turnType === 'right') {
+      // Right turn: rotate clockwise (negative)
+      car.rotation.y -= rotationSpeed;
+      // Move forward and sideways to the right
+      car.position.z -= speed * 0.5;
+      car.position.x += speed * 0.5;
+
+      if (car.rotation.y <= -Math.PI / 2) {
+        car.rotation.y = -Math.PI / 2;
+        state = "EXIT";
+      }
+    } else {
+      // Left turn: rotate counter-clockwise (positive)
+      car.rotation.y += rotationSpeed;
+      // Move forward and sideways to the left
+      car.position.z -= speed * 0.5;
+      car.position.x -= speed * 0.5;
+
+      if (car.rotation.y >= Math.PI / 2) {
+        car.rotation.y = Math.PI / 2;
+        state = "EXIT";
+      }
+    }
+  }
+
+  else if (state === "EXIT") {
+    if (turnType === 'right') {
+      car.position.x += speed;
+    } else {
+      car.position.x -= speed;
+    }
+  }
+
+  renderer.render(scene, camera);
+}
+
+animate();
+
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>

@@ -1,31 +1,29 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 
-// =============================================================================
-//  CONFIGURATION
-// =============================================================================
+// Utils
+import { CONFIG, MAP_CONFIGS } from './utils/Constants';
+import { calculateCurrentRotation } from './utils/TurnHelpers';
 
-const CONFIG = {
-  // Road dimensions
-  ROAD_WIDTH: 10,
-  ROAD_LENGTH: 120,
-  ROAD_HEIGHT: 0.2,
-  
-  // Traffic lights
-  LIGHT_DISTANCE: 14,  // Distance from center
-  LANE_OFFSET: 2.5,    // Lane offset from center line
-  
-  // Vehicle settings
-  VEHICLE_Y: 0.5,
-};
+// Scene modules
+import { buildMapByType } from './scene/MapBuilders';
+import { updateTrafficLights } from './scene/TrafficLights';
+import { updateVehiclesPhysics, updateVehicleMeshes } from './scene/VehiclePhysics';
 
-// Direction mappings for clarity
-const DIRECTIONS = {
-  N: { index: 0, name: 'North', angle: Math.PI },      // Cars coming FROM south, going north
-  E: { index: 1, name: 'East',  angle: Math.PI / 2 },  // Cars coming FROM west, going east
-  S: { index: 2, name: 'South', angle: 0 },            // Cars coming FROM north, going south  
-  W: { index: 3, name: 'West',  angle: -Math.PI / 2 }  // Cars coming FROM east, going west
-};
+// UI Components
+import { LoadingScreen } from './components/LoadingScreen';
+import { MapSidebar } from './components/MapSidebar';
+import {
+  ConnectionStatus,
+  PauseButton,
+  CurrentMapDisplay,
+  TrafficStateHUD,
+  CollisionCounter,
+  DayTimeDisplay,
+  ActiveEventHUD,
+  Instructions,
+  HUDStyles
+} from './components/HUD';
 
 // =============================================================================
 //  MAIN COMPONENT
@@ -37,15 +35,16 @@ export default function ThreeScene() {
     scene: null,
     camera: null,
     renderer: null,
-    trafficLights: {},   // direction -> {group, bulbs, timerMesh, lastDisplayedTimer}
-    vehicles: {},        // id -> mesh
+    trafficLights: {},
+    vehicles: {},
     simulationData: null,
     lastPacketTime: 0,
-    localVehicles: {},   // id -> { position, speed, lane, direction, waiting }
-    localLights: {},   // direction -> { color, timer, transitioning }
-    collisionCount: 0,   // Collision counter
-    dayTime: 0,          // Day time in seconds (0-86400 for 24 hours)
-    vehicleMeshesShared: null  // Shared geometry/materials for vehicles
+    localVehicles: {},
+    localLights: {},
+    collisionCount: 0,
+    collidedPairs: new Set(),
+    dayTime: 0,
+    vehicleMeshesShared: null
   });
   
   const [connected, setConnected] = useState(false);
@@ -54,6 +53,100 @@ export default function ThreeScene() {
   const [activeEvent, setActiveEvent] = useState(null);
   const [collisionCount, setCollisionCount] = useState(0);
   const [dayTime, setDayTime] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const pausedRef = useRef(false);
+  
+  // Map selection state
+  const [currentMap, setCurrentMap] = useState('intersection');
+  const [isLoading, setIsLoading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const currentMapRef = useRef('intersection');
+  
+  // Keep refs in sync
+  useEffect(() => { pausedRef.current = paused; }, [paused]);
+  useEffect(() => { currentMapRef.current = currentMap; }, [currentMap]);
+
+  // ==========================================================================
+  //  Map Switching Logic
+  // ==========================================================================
+  
+  const switchMap = useCallback(async (mapId) => {
+    if (mapId === currentMap || isLoading) return;
+    
+    setIsLoading(true);
+    setLoadingProgress(0);
+    setSidebarOpen(false);
+    
+    const loadingSteps = [
+      { progress: 10, delay: 100 },
+      { progress: 30, delay: 200 },
+      { progress: 50, delay: 300 },
+      { progress: 70, delay: 200 },
+      { progress: 90, delay: 150 },
+      { progress: 100, delay: 100 },
+    ];
+    
+    for (const step of loadingSteps) {
+      await new Promise(resolve => setTimeout(resolve, step.delay));
+      setLoadingProgress(step.progress);
+    }
+    
+    const { scene, vehicles, trafficLights } = sceneDataRef.current;
+    
+    // Remove all vehicles
+    Object.keys(vehicles).forEach(id => {
+      const mesh = vehicles[id];
+      if (mesh) {
+        scene.remove(mesh);
+        mesh.geometry?.dispose();
+        mesh.material?.dispose();
+      }
+      delete vehicles[id];
+    });
+    
+    // Remove traffic light groups
+    Object.keys(trafficLights).forEach(dir => {
+      const light = trafficLights[dir];
+      if (light?.group) {
+        scene.remove(light.group);
+      }
+      delete trafficLights[dir];
+    });
+    
+    // Clear local state
+    sceneDataRef.current.localVehicles = {};
+    sceneDataRef.current.collisionCount = 0;
+    sceneDataRef.current.collidedPairs = new Set();
+    setCollisionCount(0);
+    
+    // Remove map objects
+    const objectsToRemove = [];
+    scene.traverse((child) => {
+      if (child.userData.mapObject) {
+        objectsToRemove.push(child);
+      }
+    });
+    objectsToRemove.forEach(obj => {
+      scene.remove(obj);
+      obj.geometry?.dispose();
+      if (obj.material) {
+        if (Array.isArray(obj.material)) {
+          obj.material.forEach(m => m.dispose());
+        } else {
+          obj.material.dispose();
+        }
+      }
+    });
+    
+    // Build new map
+    buildMapByType(scene, sceneDataRef.current.trafficLights, mapId);
+    
+    setCurrentMap(mapId);
+    
+    await new Promise(resolve => setTimeout(resolve, 300));
+    setIsLoading(false);
+  }, [currentMap, isLoading]);
 
   // ==========================================================================
   //  WebSocket Connection
@@ -72,7 +165,6 @@ export default function ThreeScene() {
       ws.onopen = () => {
         console.log('✓ Connected to simulation server');
         setConnected(true);
-        console.log(`${isProd ? 'Production' : 'Development'} mode`)
       };
       
       ws.onmessage = (event) => {
@@ -81,9 +173,7 @@ export default function ThreeScene() {
           sceneDataRef.current.simulationData = data;
           sceneDataRef.current.lastPacketTime = performance.now();
           
-          // Update local vehicle state from server data
           if (data.Vehicles) {
-            // If Reset flag is true, mark existing vehicles as fading instead of clearing
             if (data.Reset === true) {
               Object.values(sceneDataRef.current.localVehicles).forEach(v => {
                 v.fading = true;
@@ -92,33 +182,61 @@ export default function ThreeScene() {
             }
             
             data.Vehicles.forEach(v => {
-              if (!v.Id || !v.Sens || !['N','S','E','W'].includes(v.Sens)) return; // Skip invalid vehicles
+              if (!v.Id || !v.Sens || !['N','S','E','W'].includes(v.Sens)) return;
               
-              // Only update if this is a new vehicle or if we don't have it yet
               if (!sceneDataRef.current.localVehicles[v.Id]) {
+                const turnRandom = Math.random();
+                const turnDirection = turnRandom < 0.5 ? 'straight' : (turnRandom < 0.75 ? 'left' : 'right');
+                
+                const { LANE_OFFSET } = CONFIG;
+                const lane = v.Voie?.includes('1') ? 1 : 2;
+                const laneOff = (lane === 1 ? -LANE_OFFSET : LANE_OFFSET) * 0.8;
+                const currentPos = v.Position || 0;
+                
+                let initX = 0, initZ = 0;
+                if (v.Sens === 'N') {
+                  initX = -laneOff;
+                  initZ = 50 - currentPos;
+                } else if (v.Sens === 'S') {
+                  initX = laneOff;
+                  initZ = -50 + currentPos;
+                } else if (v.Sens === 'E') {
+                  initX = -50 + currentPos;
+                  initZ = -laneOff;
+                } else if (v.Sens === 'W') {
+                  initX = 50 - currentPos;
+                  initZ = laneOff;
+                }
+                
                 sceneDataRef.current.localVehicles[v.Id] = {
                   ...v,
-                  currentPosition: v.Position || 0,
+                  currentPosition: currentPos,
                   currentSpeed: v.Speed || 0,
                   waiting: false,
-                  fading: false
+                  fading: false,
+                  turnDirection,
+                  turnState: 'STRAIGHT',
+                  turnStartPosition: 0,
+                  turnProgress: 0,
+                  rotation: calculateCurrentRotation(v.Sens),
+                  initialRotation: calculateCurrentRotation(v.Sens),
+                  targetRotation: calculateCurrentRotation(v.Sens),
+                  position: { x: initX, z: initZ },
+                  hasTurned: false
                 };
               }
-              // Don't update position/speed for existing vehicles - let local physics handle that
             });
             
             sceneDataRef.current.localVehicles = { ...sceneDataRef.current.localVehicles };
           }
 
-          // Initialize local light state from server data
           if (data.Lights) {
             const newLocalLights = {};
             const serverTime = data.ServerTime || Date.now();
-            // Capture mapping points for interpolation
             sceneDataRef.current.serverTimeAtLastPacket = serverTime;
             sceneDataRef.current.clientPerfAtLastPacket = performance.now();
+            
             data.Lights.forEach(light => {
-              // Prefer ExpiresAt (epoch ms); fall back to Timer (seconds)
               const expiresAt = light.ExpiresAt || (serverTime + (light.Timer || 0) * 1000);
               newLocalLights[light.Sens] = {
                 color: light.Couleur,
@@ -129,21 +247,19 @@ export default function ThreeScene() {
             sceneDataRef.current.localLights = newLocalLights;
           }
 
-          // Update HUD state
           if (data.Event) {
             setActiveEvent(data.Event.name);
-            // Map event to traffic state
             const name = data.Event.name;
             if (['Rush Hour', 'Accident', 'Construction', 'Bad Weather'].includes(name)) {
               setTrafficState('Slow');
             } else if (name === 'Event Nearby') {
-              setTrafficState('Moderate'); // High volume but moving
+              setTrafficState('Moderate');
             } else {
               setTrafficState('Moderate');
             }
           } else {
             setActiveEvent(null);
-            setTrafficState('Fast'); // No event = normal/fast
+            setTrafficState('Fast');
           }
 
           if (data.Events) {
@@ -191,7 +307,7 @@ export default function ThreeScene() {
     
     // Scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#87CEEB');  // Sky blue
+    scene.background = new THREE.Color('#87CEEB');
     
     // Camera
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
@@ -220,12 +336,10 @@ export default function ThreeScene() {
     sceneDataRef.current.camera = camera;
     sceneDataRef.current.renderer = renderer;
     
-    // Build the scene
-    buildGround(scene);
-    buildRoads(scene);
-    buildTrafficLights(scene, sceneDataRef.current.trafficLights);
+    // Build initial map
+    buildMapByType(scene, sceneDataRef.current.trafficLights, currentMapRef.current);
     
-    // Camera controls (drag to rotate)
+    // Camera controls
     let dragging = false, prevX = 0, prevY = 0;
     
     const onPointerDown = (e) => { 
@@ -234,9 +348,7 @@ export default function ThreeScene() {
       prevY = e.clientY; 
     };
     
-    const onPointerUp = () => { 
-      dragging = false; 
-    };
+    const onPointerUp = () => { dragging = false; };
     
     const onPointerMove = (e) => {
       if (!dragging) return;
@@ -268,49 +380,64 @@ export default function ThreeScene() {
     // Animation loop
     let lastTime = performance.now();
     let lastLightingUpdate = 0;
-    const LIGHTING_UPDATE_MS = 1000; // Update lighting every second instead of every frame
+    const LIGHTING_UPDATE_MS = 1000;
     
     const animate = (now) => {
       requestAnimationFrame(animate);
       const dt = (now - lastTime) / 1000;
       lastTime = now;
       
-      // Update day/night cycle (throttled)
-      sceneDataRef.current.dayTime += dt * 100; // Speed up time (100x real time)
+      if (pausedRef.current) {
+        renderer.render(scene, camera);
+        return;
+      }
+      
+      // Day/night cycle
+      sceneDataRef.current.dayTime += dt * 100;
       if (sceneDataRef.current.dayTime >= 86400) sceneDataRef.current.dayTime = 0;
       
-      // Update lighting less frequently
       if (now - lastLightingUpdate > LIGHTING_UPDATE_MS) {
         lastLightingUpdate = now;
         setDayTime(sceneDataRef.current.dayTime);
         
-        // Adjust lighting based on time
         const hour = (sceneDataRef.current.dayTime / 3600) % 24;
         const isDay = hour >= 6 && hour <= 18;
         const intensity = isDay ? 0.8 : 0.2;
         sun.intensity = intensity;
         ambient.intensity = isDay ? 0.6 : 0.3;
-        scene.background = new THREE.Color(isDay ? '#87CEEB' : '#191970'); // Sky blue to midnight blue
+        scene.background = new THREE.Color(isDay ? '#87CEEB' : '#191970');
       }
       
-      // Update from simulation data
+      // Update from simulation
       const data = sceneDataRef.current.simulationData;
       if (data) {
-        // Calculate delta time for this frame
-        const elapsedTotal = (now - sceneDataRef.current.lastPacketTime) / 1000;
-        
-        // Estimate server-side 'now' for timer calculations
         const serverTimeBase = sceneDataRef.current.serverTimeAtLastPacket || Date.now();
         const clientPerfBase = sceneDataRef.current.clientPerfAtLastPacket || performance.now();
         const estimatedServerNow = serverTimeBase + (now - clientPerfBase);
         
-        updateTrafficLights(sceneDataRef.current.trafficLights, sceneDataRef.current.localLights, elapsedTotal, estimatedServerNow);
+        updateTrafficLights(
+          sceneDataRef.current.trafficLights, 
+          sceneDataRef.current.localLights, 
+          0, 
+          estimatedServerNow
+        );
         
-        // Run physics simulation step
-        updateVehiclesPhysics(dt, data.Lights, sceneDataRef.current.localVehicles, sceneDataRef.current.localLights, estimatedServerNow);
+        updateVehiclesPhysics(
+          dt, 
+          data.Lights, 
+          sceneDataRef.current.localVehicles, 
+          sceneDataRef.current.localLights, 
+          estimatedServerNow,
+          sceneDataRef,
+          setCollisionCount
+        );
         
-        // Update meshes based on local physics state
-        updateVehicleMeshes(sceneDataRef.current.localVehicles, scene, sceneDataRef.current.vehicles);
+        updateVehicleMeshes(
+          sceneDataRef.current.localVehicles, 
+          scene, 
+          sceneDataRef.current.vehicles,
+          sceneDataRef
+        );
       }
       
       renderer.render(scene, camera);
@@ -333,516 +460,57 @@ export default function ThreeScene() {
   }, []);
 
   // ==========================================================================
-  //  Scene Building Functions
-  // ==========================================================================
-  
-  function buildGround(scene) {
-    const groundGeo = new THREE.PlaneGeometry(200, 200);
-    const groundMat = new THREE.MeshLambertMaterial({ color: '#7ec850' }); // Grass green
-    const ground = new THREE.Mesh(groundGeo, groundMat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.1;
-    ground.receiveShadow = true;
-    scene.add(ground);
-  }
-  
-  function buildRoads(scene) {
-    const roadMat = new THREE.MeshLambertMaterial({ color: '#404040' });
-    const lineMat = new THREE.MeshBasicMaterial({ color: '#ffffff' });
-    
-    const { ROAD_WIDTH, ROAD_LENGTH, ROAD_HEIGHT } = CONFIG;
-    
-    // Horizontal road (East-West)
-    const hRoadGeo = new THREE.BoxGeometry(ROAD_LENGTH, ROAD_HEIGHT, ROAD_WIDTH);
-    const hRoad = new THREE.Mesh(hRoadGeo, roadMat);
-    hRoad.position.y = ROAD_HEIGHT / 2;
-    hRoad.receiveShadow = true;
-    scene.add(hRoad);
-    
-    // Vertical road (North-South)
-    const vRoadGeo = new THREE.BoxGeometry(ROAD_WIDTH, ROAD_HEIGHT, ROAD_LENGTH);
-    const vRoad = new THREE.Mesh(vRoadGeo, roadMat);
-    vRoad.position.y = ROAD_HEIGHT / 2;
-    vRoad.receiveShadow = true;
-    scene.add(vRoad);
-    
-    // Center line markings (dashed)
-    const dashGeo = new THREE.BoxGeometry(3, 0.05, 0.3);
-    for (let i = -25; i <= 25; i += 4) {
-      // Horizontal dashes
-      const hDash = new THREE.Mesh(dashGeo, lineMat);
-      hDash.position.set(i * 2, ROAD_HEIGHT + 0.05, 0);
-      scene.add(hDash);
-    }
-    
-    const vDashGeo = new THREE.BoxGeometry(0.3, 0.05, 3);
-    for (let i = -25; i <= 25; i += 4) {
-      // Vertical dashes
-      const vDash = new THREE.Mesh(vDashGeo, lineMat);
-      vDash.position.set(0, ROAD_HEIGHT + 0.05, i * 2);
-      scene.add(vDash);
-    }
-  }
-  function buildTrafficLights(scene, trafficLightsRef) {
-    const { LIGHT_DISTANCE, LANE_OFFSET, ROAD_HEIGHT } = CONFIG;
-    
-    // Traffic light positions and rotations
-    // Each light faces TOWARD the incoming traffic (i.e., toward where cars are coming from)
-    const lightConfigs = {
-      // North light: positioned at north side, faces SOUTH (toward cars coming from south)
-      'N': { 
-        position: new THREE.Vector3(-LANE_OFFSET - 1.5, 0, -LIGHT_DISTANCE),
-        rotation: Math.PI,  // Faces south
-        label: 'N'
-      },
-      // South light: positioned at south side, faces NORTH (toward cars coming from north)
-      'S': { 
-        position: new THREE.Vector3(LANE_OFFSET + 1.5, 0, LIGHT_DISTANCE),
-        rotation: 0,  // Faces north
-        label: 'S'
-      },
-      // East light: positioned at east side, faces EAST (toward cars coming from east)
-      'E': { 
-        position: new THREE.Vector3(LIGHT_DISTANCE, 0, -LANE_OFFSET - 1.5),
-        rotation: Math.PI / 2,  // Faces East
-        label: 'E'
-      },
-      // West light: positioned at west side, faces WEST (toward cars coming from west)
-      'W': { 
-        position: new THREE.Vector3(-LIGHT_DISTANCE, 0, LANE_OFFSET + 1.5),
-        rotation: -Math.PI / 2,  // Faces West
-        label: 'W'
-      }
-    };
-    
-    const poleMat = new THREE.MeshLambertMaterial({ color: '#333333' });
-    const housingMat = new THREE.MeshLambertMaterial({ color: '#1a1a1a' });
-    
-    Object.entries(lightConfigs).forEach(([direction, config]) => {
-      const group = new THREE.Group();
-      group.position.copy(config.position);
-      group.rotation.y = config.rotation;
-      
-      // Pole
-      const poleGeo = new THREE.CylinderGeometry(0.15, 0.15, 6, 12);
-      const pole = new THREE.Mesh(poleGeo, poleMat);
-      pole.position.y = 3;
-      pole.castShadow = true;
-      group.add(pole);
-      
-      // Light housing
-      const housingGeo = new THREE.BoxGeometry(1.0, 3.0, 0.8);
-      const housing = new THREE.Mesh(housingGeo, housingMat);
-      housing.position.set(0, 5.5, 0);
-      housing.castShadow = true;
-      group.add(housing);
-      
-      // Light bulbs (Red, Yellow, Green from top to bottom)
-      const bulbGeo = new THREE.CircleGeometry(0.3, 16);
-      const bulbColors = {
-        red: new THREE.MeshBasicMaterial({ color: '#330000' }),
-        yellow: new THREE.MeshBasicMaterial({ color: '#333300' }),
-        green: new THREE.MeshBasicMaterial({ color: '#003300' })
-      };
-      
-      const redBulb = new THREE.Mesh(bulbGeo, bulbColors.red.clone());
-      redBulb.position.set(0, 6.3, 0.41);
-      group.add(redBulb);
-      
-      const yellowBulb = new THREE.Mesh(bulbGeo, bulbColors.yellow.clone());
-      yellowBulb.position.set(0, 5.5, 0.41);
-      group.add(yellowBulb);
-      
-      const greenBulb = new THREE.Mesh(bulbGeo, bulbColors.green.clone());
-      greenBulb.position.set(0, 4.7, 0.41);
-      group.add(greenBulb);
-      
-      // Timer and Direction label display (text sprite)
-      const timerCanvas = document.createElement('canvas');
-      timerCanvas.width = 256;
-      timerCanvas.height = 128;
-      const timerTexture = new THREE.CanvasTexture(timerCanvas);
-      const timerMat = new THREE.SpriteMaterial({ map: timerTexture });
-      const timerSprite = new THREE.Sprite(timerMat);
-      timerSprite.position.set(0, 8, 0);
-      timerSprite.scale.set(4, 2, 1);
-      group.add(timerSprite);
-      
-      // Direction names
-      const directionNames = { 'N': 'NORTH', 'S': 'SOUTH', 'E': 'EAST', 'W': 'WEST' };
-      const dirName = directionNames[direction];
-
-      // Initial draw
-      const ctx = timerCanvas.getContext('2d');
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-      ctx.fillRect(0, 0, 256, 128);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 28px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(dirName, 128, 35);
-      ctx.font = 'bold 48px Arial';
-      ctx.fillText("--", 128, 88); // Placeholder for timer
-      timerTexture.needsUpdate = true;
-      
-      scene.add(group);
-      
-      // Store reference (track last canvas update and last displayed values to avoid per-frame updates)
-      trafficLightsRef[direction] = {
-        group,
-        bulbs: { red: redBulb, yellow: yellowBulb, green: greenBulb },
-        timerCanvas,
-        timerTexture,
-        timerSprite,
-        directionName: dirName,
-        lastCanvasUpdate: 0,        // perf.now() when canvas was last updated
-        lastDisplayedTimer: null,   // string previously drawn
-        lastColor: null             // last applied color (RED/YELLOW/GREEN)
-      };
-    });
-  }
-
-  // ==========================================================================
-  //  Update Functions
-  // ==========================================================================
-  function updateTrafficLights(trafficLightsRef, localLights, elapsed, estimatedServerNow) {
-    if (!localLights) return;
-    
-    // Use the passed estimatedServerNow
-    
-    const CANVAS_UPDATE_MS = 250; // throttle canvas updates to ~4Hz (since server sends every 1s)
-    const perfNow = performance.now();
-    
-    Object.keys(localLights).forEach(direction => {
-      const lightRef = trafficLightsRef[direction];
-      if (!lightRef) return;
-      
-      const { bulbs, timerCanvas, timerTexture, directionName } = lightRef;
-      const localLight = localLights[direction];
-      if (!localLight) return;
-
-      // Only change bulb colors if the color actually changed (avoid per-frame writes)
-      if (lightRef.lastColor !== localLight.color) {
-        // Reset to dim first
-        bulbs.red.material.color.setHex(0x330000);
-        bulbs.yellow.material.color.setHex(0x333300);
-        bulbs.green.material.color.setHex(0x003300);
-
-        // Light up active bulb
-        if (localLight.color === 'RED') {
-          bulbs.red.material.color.setHex(0xff0000);
-        } else if (localLight.color === 'YELLOW') {
-          bulbs.yellow.material.color.setHex(0xffff00);
-        } else if (localLight.color === 'GREEN') {
-          bulbs.green.material.color.setHex(0x00ff00);
-        }
-        lightRef.lastColor = localLight.color;
-      }
-      
-      // Compute remaining time (ms) from expiresAt and the estimated server now
-      const remainingMs = (localLight.expiresAt || 0) - estimatedServerNow;
-      const displayStr = remainingMs > 0 ? (remainingMs / 1000).toFixed(1) + 's' : '0.0s';
-      
-      // Throttle canvas / texture updates to reduce GPU upload pressure
-      if (lightRef.lastDisplayedTimer !== displayStr) {
-        if (perfNow - (lightRef.lastCanvasUpdate || 0) > CANVAS_UPDATE_MS) {
-          lightRef.lastDisplayedTimer = displayStr;
-          lightRef.lastCanvasUpdate = perfNow;
-
-          const ctx = timerCanvas.getContext('2d');
-          ctx.clearRect(0, 0, 256, 128);
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-          ctx.fillRect(0, 0, 256, 128);
-
-          // Direction label at top
-          ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 28px Arial';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(directionName, 128, 35);
-
-          // Timer text below (show fractional seconds)
-          ctx.fillStyle = localLight.color === 'RED' ? '#ff4444' : 
-                          localLight.color === 'YELLOW' ? '#ffff44' : '#44ff44';
-          ctx.font = 'bold 48px Arial';
-          ctx.fillText(displayStr, 128, 88);
-
-          timerTexture.needsUpdate = true;
-        }
-      }
-    });
-  }
-  
-  function updateVehiclesPhysics(dt, lightsData, localVehicles, localLights, estimatedServerNow) {
-    if (!localVehicles) return;
-
-    // Helper to get light color for a direction
-    const getLightColor = (dir) => {
-      const light = localLights[dir];
-      return light ? light.color : 'GREEN';
-    };
-
-    // Stop line is at the intersection (before traffic lights)
-    const STOP_LINE = 35; // Position where cars should stop (at intersection z=0)
-    const SAFE_DISTANCE = 4; // Minimum distance between cars (should be at least car length)
-    const STOPPING_BUFFER = 2; // Extra buffer to start stopping before reaching exact distance
-
-    // Convert object to array for sorting
-    const vehicles = Object.values(localVehicles);
-
-    // Group by lane (Direction + Lane ID) to check for cars ahead
-    const lanes = {};
-    vehicles.forEach(v => {
-      const key = `${v.Sens}-${v.Voie}`;
-      if (!lanes[key]) lanes[key] = [];
-      lanes[key].push(v);
-    });
-
-    // Sort cars in each lane by position (descending = furthest ahead)
-    Object.values(lanes).forEach(laneVehicles => {
-      laneVehicles.sort((a, b) => b.currentPosition - a.currentPosition);
-    });
-
-    // Update each vehicle
-    vehicles.forEach(v => {
-      const lightColor = getLightColor(v.Sens);
-      const light = localLights[v.Sens];
-      const remainingMs = light ? (light.expiresAt - estimatedServerNow) : 0;
-      const remainingSec = remainingMs / 1000;
-      let shouldStop = false;
-      let targetStopPosition = null;
-
-      // 1. Check for car ahead first
-      const key = `${v.Sens}-${v.Voie}`;
-      const laneVehicles = lanes[key];
-      const myIndex = laneVehicles.indexOf(v);
-      
-      if (myIndex > 0) {
-        const carAhead = laneVehicles[myIndex - 1];
-        const distanceToCarAhead = carAhead.currentPosition - v.currentPosition;
-        
-        // If there's a car ahead, we need to maintain safe distance
-        if (distanceToCarAhead < SAFE_DISTANCE + STOPPING_BUFFER) {
-          shouldStop = true;
-          targetStopPosition = carAhead.currentPosition - SAFE_DISTANCE;
-        }
-      }
-
-      // 2. Traffic Light Logic (only if no car ahead is blocking us)
-      if (!shouldStop && (lightColor === 'RED' || lightColor === 'YELLOW')) {
-        if (v.currentPosition >= STOP_LINE) {
-          // Already past stop line, continue through intersection
-        } else {
-          // Check if should commit to going through (light about to turn green and car is close)
-          const commitTimeThreshold = 1.0; // seconds
-          const closeDistanceThreshold = 10; // units from stop line
-          const shouldCommit = remainingSec <= commitTimeThreshold && v.currentPosition >= STOP_LINE - closeDistanceThreshold;
-          
-          if (!shouldCommit) {
-            // Calculate deceleration distance needed to stop at stop line
-            const deceleration = 25; // units/s²
-            const stopDistance = (v.currentSpeed ** 2) / (2 * deceleration);
-            
-            // Start decelerating if we can't stop in time
-            if (v.currentPosition + stopDistance >= STOP_LINE - STOPPING_BUFFER) {
-              shouldStop = true;
-              targetStopPosition = STOP_LINE;
-            }
-          }
-        }
-      }
-
-      // Apply physics
-      if (shouldStop) {
-        // Calculate how close we are to target stop position
-        const distanceToStop = targetStopPosition ? (targetStopPosition - v.currentPosition) : 0;
-        
-        // If we're very close to stop position, stop completely
-        if (distanceToStop < 0.5) {
-          v.currentSpeed = 0;
-        } else {
-          // Decelerate smoothly - decelerate faster if we're close to target
-          const decelerationRate = distanceToStop < 5 ? 20 : 15;
-          v.currentSpeed = Math.max(0, v.currentSpeed - decelerationRate * dt);
-        }
-        v.waiting = true;
-      } else {
-        // Accelerate to target speed
-        v.currentSpeed = Math.min(v.Speed, v.currentSpeed + 15 * dt);
-        v.waiting = false;
-      }
-
-      // Move
-      v.currentPosition += v.currentSpeed * dt;
-    });
-
-    // Check for collisions
-    Object.values(lanes).forEach(laneVehicles => {
-      for (let i = 0; i < laneVehicles.length - 1; i++) {
-        const v1 = laneVehicles[i];
-        const v2 = laneVehicles[i + 1];
-        const distance = Math.abs(v1.currentPosition - v2.currentPosition);
-        if (distance < 2) { // Collision threshold (less than safe distance)
-          sceneDataRef.current.collisionCount++;
-          setCollisionCount(sceneDataRef.current.collisionCount);
-        }
-      }
-    });
-
-    // Remove vehicles that have gone too far past the intersection
-    const REMOVAL_DISTANCE = 120; // Remove vehicles that have traveled more than 120 units past stop line
-    Object.keys(localVehicles).forEach(id => {
-      const vehicle = localVehicles[id];
-      if (vehicle.currentPosition > STOP_LINE + REMOVAL_DISTANCE) {
-        delete localVehicles[id];
-      }
-    });
-  }
-
-  function updateVehicleMeshes(localVehicles, scene, vehiclesRef) {
-    if (!localVehicles) return;
-    
-    const { LANE_OFFSET, ROAD_HEIGHT } = CONFIG;
-    const presentIds = new Set();
-    
-    // Precompute lane offsets
-    const laneOffsets = {
-      1: -LANE_OFFSET * 0.8,
-      2: LANE_OFFSET * 0.8
-    };
-    
-    Object.values(localVehicles).forEach(vehicle => {
-      presentIds.add(vehicle.Id);
-      
-      let mesh = vehiclesRef[vehicle.Id];
-      
-      // Create new mesh if doesn't exist
-      if (!mesh) {
-        // Reuse geometry and materials to reduce allocations
-        if (!sceneDataRef.current.vehicleMeshesShared) {
-          const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c'];
-          sceneDataRef.current.vehicleMeshesShared = {
-            bodyGeo: new THREE.BoxGeometry(1.8, 0.8, 3.5),
-            roofGeo: new THREE.BoxGeometry(1.4, 0.5, 1.8),
-            bodyMats: colors.map(c => new THREE.MeshLambertMaterial({ color: c })),
-            roofMat: new THREE.MeshLambertMaterial({ color: '#333333' })
-          };
-        }
-        
-        const colorIndex = vehicle.Id % sceneDataRef.current.vehicleMeshesShared.bodyMats.length;
-        const bodyMat = sceneDataRef.current.vehicleMeshesShared.bodyMats[colorIndex];
-        mesh = new THREE.Mesh(sceneDataRef.current.vehicleMeshesShared.bodyGeo, bodyMat);
-        mesh.castShadow = true;
-        scene.add(mesh);
-        vehiclesRef[vehicle.Id] = mesh;
-        
-        // Add simple roof
-        const roof = new THREE.Mesh(sceneDataRef.current.vehicleMeshesShared.roofGeo, sceneDataRef.current.vehicleMeshesShared.roofMat);
-        roof.position.y = 0.6;
-        roof.position.z = -0.3;
-        mesh.add(roof);
-      }
-      
-      // Handle fading
-      if (vehicle.fading) {
-        const fadeTime = (performance.now() - vehicle.fadeStart) / 1000;
-        const opacity = Math.max(0, 1 - fadeTime / 2); // Fade over 2 seconds
-        mesh.material.opacity = opacity;
-        mesh.material.transparent = true;
-        if (opacity <= 0) {
-          // Mark for removal
-          vehicle.toRemove = true;
-        }
-      } else {
-        mesh.material.opacity = 1;
-        mesh.material.transparent = false;
-      }
-      
-      // Calculate position based on direction and lane
-      const dir = vehicle.Sens;
-      const lane = vehicle.Voie.includes('1') ? 1 : 2;
-      const currentPos = vehicle.currentPosition;
-      const laneOff = laneOffsets[lane];
-      
-      let x = 0, z = 0, rotY = 0;
-      
-      // Position based on direction (optimized switch)
-      if (dir === 'N') {
-        x = -laneOff;
-        z = 50 - currentPos;
-        rotY = Math.PI;
-      } else if (dir === 'S') {
-        x = laneOff;
-        z = -50 + currentPos;
-        rotY = 0;
-      } else if (dir === 'E') {
-        x = -50 + currentPos;
-        z = -laneOff;
-        rotY = Math.PI / 2;
-      } else if (dir === 'W') {
-        x = 50 - currentPos;
-        z = laneOff;
-        rotY = -Math.PI / 2;
-      } else {
-        // Invalid direction, place at center
-        x = 0;
-        z = 0;
-        rotY = 0;
-      }
-      
-      mesh.position.set(x, CONFIG.VEHICLE_Y, z);
-      mesh.rotation.y = rotY;
-      
-      // Visual feedback for waiting (only update if changed)
-      const brakeLightColor = vehicle.waiting ? 0xff0000 : 0x333333;
-      if (mesh.children[0] && mesh.children[0].material.color.getHex() !== brakeLightColor) {
-        mesh.children[0].material.color.setHex(brakeLightColor);
-      }
-    });
-    
-    // Remove faded vehicles
-    Object.keys(localVehicles).forEach(id => {
-      if (localVehicles[id].toRemove) {
-        delete localVehicles[id];
-      }
-    });
-    
-    // Remove vehicles that are no longer present
-    Object.keys(vehiclesRef).forEach(id => {
-      if (!presentIds.has(parseInt(id))) {
-        const mesh = vehiclesRef[id];
-        scene.remove(mesh);
-        mesh.geometry.dispose();
-        mesh.material.dispose();
-        delete vehiclesRef[id];
-      }
-    });
-  }
-
-  // ==========================================================================
   //  Render
   // ==========================================================================
   
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
+    <div style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden' }}>
       <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
       
-      {/* Connection status */}
+      {/* Loading Screen */}
+      <LoadingScreen 
+        isLoading={isLoading} 
+        currentMap={currentMap} 
+        loadingProgress={loadingProgress} 
+      />
+      
+      {/* Map Sidebar */}
+      <MapSidebar
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        currentMap={currentMap}
+        switchMap={switchMap}
+        isLoading={isLoading}
+      />
+      
+      {/* Top Left Controls */}
       <div style={{
         position: 'absolute',
         top: 10,
         left: 10,
-        padding: '8px 16px',
-        background: connected ? 'rgba(46, 204, 113, 0.9)' : 'rgba(231, 76, 60, 0.9)',
-        color: 'white',
-        borderRadius: 4,
-        fontSize: 14,
-        fontFamily: 'Arial, sans-serif'
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        zIndex: 40
       }}>
-        {connected ? '● Connected' : '○ Disconnected'}
+        <ConnectionStatus connected={connected} />
       </div>
       
-      {/* Events panel */}
+      {/* Bottom Left Controls */}
+      <div style={{
+        position: 'absolute',
+        bottom: 10,
+        left: 10,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        zIndex: 40
+      }}>
+        <PauseButton paused={paused} setPaused={setPaused} />
+        <Instructions />
+      </div>
+      
+      {/* Right Side HUD */}
       <div style={{
         position: 'absolute',
         top: 10,
@@ -850,86 +518,17 @@ export default function ThreeScene() {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-end',
-        gap: 10
+        gap: 10,
+        zIndex: 40
       }}>
-        {/* Traffic State HUD */}
-        <div style={{
-          padding: '12px 20px',
-          background: 'rgba(0, 0, 0, 0.85)',
-          color: 'white',
-          borderRadius: 8,
-          fontSize: 16,
-          fontFamily: 'Arial, sans-serif',
-          borderLeft: `6px solid ${
-            trafficState === 'Slow' ? '#e74c3c' : 
-            trafficState === 'Moderate' ? '#f39c12' : '#2ecc71'
-          }`,
-          boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
-        }}>
-          <div style={{ fontSize: 12, textTransform: 'uppercase', opacity: 0.7, marginBottom: 4 }}>Traffic State</div>
-          <div style={{ fontSize: 24, fontWeight: 'bold' }}>{trafficState}</div>
-        </div>
-
-        {/* Collision Counter */}
-        <div style={{
-          padding: '12px 20px',
-          background: 'rgba(255, 0, 0, 0.9)',
-          color: 'white',
-          borderRadius: 8,
-          fontSize: 16,
-          fontFamily: 'Arial, sans-serif',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
-        }}>
-          <div style={{ fontSize: 12, textTransform: 'uppercase', opacity: 0.7, marginBottom: 4 }}>Accidents</div>
-          <div style={{ fontSize: 24, fontWeight: 'bold' }}>{collisionCount}</div>
-        </div>
-
-        {/* Day Time */}
-        <div style={{
-          padding: '12px 20px',
-          background: 'rgba(0, 0, 0, 0.85)',
-          color: 'white',
-          borderRadius: 8,
-          fontSize: 16,
-          fontFamily: 'Arial, sans-serif',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
-        }}>
-          <div style={{ fontSize: 12, textTransform: 'uppercase', opacity: 0.7, marginBottom: 4 }}>Time</div>
-          <div style={{ fontSize: 20, fontWeight: 'bold' }}>{Math.floor(dayTime / 3600).toString().padStart(2, '0')}:{Math.floor((dayTime % 3600) / 60).toString().padStart(2, '0')}</div>
-        </div>
-
-        {/* Active Event HUD */}
-        {activeEvent && (
-          <div style={{
-            padding: '12px 20px',
-            background: 'rgba(192, 57, 43, 0.9)',
-            color: 'white',
-            borderRadius: 8,
-            fontSize: 16,
-            fontFamily: 'Arial, sans-serif',
-            animation: 'pulse 2s infinite',
-            boxShadow: '0 4px 15px rgba(192, 57, 43, 0.4)'
-          }}>
-            <div style={{ fontSize: 12, textTransform: 'uppercase', fontWeight: 'bold', marginBottom: 4 }}>⚠ ACTIVE EVENT</div>
-            <div style={{ fontSize: 20, fontWeight: 'bold' }}>{activeEvent}</div>
-          </div>
-        )}
+        <CurrentMapDisplay currentMap={currentMap} />
+        <TrafficStateHUD trafficState={trafficState} />
+        <CollisionCounter collisionCount={collisionCount} />
+        <DayTimeDisplay dayTime={dayTime} />
+        <ActiveEventHUD activeEvent={activeEvent} />
       </div>
       
-      {/* Instructions */}
-      <div style={{
-        position: 'absolute',
-        bottom: 10,
-        left: 10,
-        padding: '8px 12px',
-        background: 'rgba(0, 0, 0, 0.6)',
-        color: 'white',
-        borderRadius: 4,
-        fontSize: 12,
-        fontFamily: 'Arial, sans-serif'
-      }}>
-        Drag to rotate view
-      </div>
+      <HUDStyles />
     </div>
   );
 }
