@@ -1,0 +1,76 @@
+{
+  "connectionStatus": {
+    "connected": "● Connected",
+    "disconnected": "○ Disconnected"
+  },
+  "pauseButton": {
+    "pause": "⏸ Pause",
+    "resume": "▶ Resume"
+  },
+  "currentMap": {
+    "label": "Current Map"
+  },
+  "trafficState": {
+    "label": "Traffic State",
+    "slow": "Slow",
+    "moderate": "Moderate",
+    "normal": "Normal"
+  },
+  "collisionCounter": {
+    "label": "Accidents"
+  },
+  "dayTime": {
+    "label": "Time"
+  },
+  "activeEvent": {
+    "label": "⚠ ACTIVE EVENT"
+  },
+  "instructions": {
+    "dragToRotate": "Drag to rotate view"
+  },
+  "loadingScreen": {
+    "loading": "Loading",
+    "complete": "Complete"
+  },
+  "mapSidebar": {
+    "title": "🗺️ Select Map",
+    "footer": "Select a map to switch the simulation environment",
+    "toggleButton": "🗺️ Maps",
+    "active": "Active"  },
+  "trafficStates": {
+    "Slow": "Slow",
+    "Moderate": "Moderate",
+    "Fast": "Fast"
+  },
+  "events": {
+    "Accident": "Accident",
+    "Road Work": "Road Work",
+    "Heavy Traffic": "Heavy Traffic",
+    "Emergency Vehicle": "Emergency Vehicle",
+    "Rush Hour": "Rush Hour",
+    "Construction": "Construction",
+    "Bad Weather": "Bad Weather",
+    "Event Nearby": "Event Nearby"
+  },
+  "maps": {
+    "intersection": {
+      "name": "Simple Intersection",
+      "description": "4-way intersection with traffic lights"
+    },
+    "rainyIntersection": {
+      "name": "Rainy Intersection",
+      "description": "Wet roads with rain weather conditions"
+    },
+    "desertIntersection": {
+      "name": "Desert Intersection",
+      "description": "Sandy terrain with hot desert landscape"
+    },
+    "snowyIntersection": {
+      "name": "Snowy Intersection",
+      "description": "Snow-covered roads in winter conditions"
+    },
+    "cityGrid": {
+      "name": "City Grid",
+      "description": "Multiple intersections in a grid layout"
+    }  }
+}

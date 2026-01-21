@@ -92,7 +92,8 @@ export function buildRoads(scene) {
     scene.add(vDash);
   }
   
-  const stopLineMat = new THREE.MeshBasicMaterial({ color: '#ffffff' });
+  // Stop lines (made transparent to avoid visual artifacts)
+  const stopLineMat = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0 });
   const stopLineGeo = new THREE.BoxGeometry(ROAD_WIDTH / 2 - 0.5, 0.06, 0.5);
   
   const stopN = new THREE.Mesh(stopLineGeo, stopLineMat);
@@ -160,7 +161,8 @@ function buildIntersectionRoads(scene, roadColor, lineColor) {
     scene.add(vDash);
   }
   
-  const stopLineMat = new THREE.MeshBasicMaterial({ color: lineColor });
+  // Stop lines (made transparent to avoid visual artifacts)
+  const stopLineMat = new THREE.MeshBasicMaterial({ color: lineColor, transparent: true, opacity: 0 });
   const stopLineGeo = new THREE.BoxGeometry(ROAD_WIDTH / 2 - 0.5, 0.06, 0.5);
   
   const stopN = new THREE.Mesh(stopLineGeo, stopLineMat);

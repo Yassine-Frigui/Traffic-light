@@ -1,11 +1,14 @@
 import React from 'react';
 import { MAP_CONFIGS } from '../utils/Constants';
+import { useLanguage } from '../contexts/LanguageContext';
 
 // =============================================================================
 //  CONNECTION STATUS
 // =============================================================================
 
 export function ConnectionStatus({ connected }) {
+  const { t } = useLanguage();
+  
   return (
     <div style={{
       padding: '8px 16px',
@@ -15,7 +18,7 @@ export function ConnectionStatus({ connected }) {
       fontSize: 14,
       fontFamily: 'Arial, sans-serif'
     }}>
-      {connected ? '● Connected' : '○ Disconnected'}
+      {connected ? t('connectionStatus.connected') : t('connectionStatus.disconnected')}
     </div>
   );
 }
@@ -25,6 +28,8 @@ export function ConnectionStatus({ connected }) {
 // =============================================================================
 
 export function PauseButton({ paused, setPaused }) {
+  const { t } = useLanguage();
+  
   return (
     <button
       onClick={() => setPaused(!paused)}
@@ -47,7 +52,7 @@ export function PauseButton({ paused, setPaused }) {
       onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
       onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
     >
-      {paused ? '▶ Resume' : '⏸ Pause'}
+      {paused ? t('pauseButton.resume') : t('pauseButton.pause')}
     </button>
   );
 }
@@ -57,6 +62,8 @@ export function PauseButton({ paused, setPaused }) {
 // =============================================================================
 
 export function CurrentMapDisplay({ currentMap }) {
+  const { t } = useLanguage();
+  
   return (
     <div style={{
       padding: '12px 20px',
@@ -72,8 +79,8 @@ export function CurrentMapDisplay({ currentMap }) {
     }}>
       <span style={{ fontSize: 20 }}>{MAP_CONFIGS[currentMap]?.icon}</span>
       <div>
-        <div style={{ fontSize: 11, textTransform: 'uppercase', opacity: 0.7 }}>Current Map</div>
-        <div style={{ fontWeight: 'bold' }}>{MAP_CONFIGS[currentMap]?.name}</div>
+        <div style={{ fontSize: 11, textTransform: 'uppercase', opacity: 0.7 }}>{t('currentMap.label')}</div>
+        <div style={{ fontWeight: 'bold' }}>{t(`maps.${currentMap}.name`) || MAP_CONFIGS[currentMap]?.name}</div>
       </div>
     </div>
   );
@@ -84,6 +91,8 @@ export function CurrentMapDisplay({ currentMap }) {
 // =============================================================================
 
 export function TrafficStateHUD({ trafficState }) {
+  const { t } = useLanguage();
+  
   return (
     <div style={{
       padding: '12px 20px',
@@ -98,8 +107,8 @@ export function TrafficStateHUD({ trafficState }) {
       }`,
       boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
     }}>
-      <div style={{ fontSize: 12, textTransform: 'uppercase', opacity: 0.7, marginBottom: 4 }}>Traffic State</div>
-      <div style={{ fontSize: 24, fontWeight: 'bold' }}>{trafficState}</div>
+      <div style={{ fontSize: 12, textTransform: 'uppercase', opacity: 0.7, marginBottom: 4 }}>{t('trafficState.label')}</div>
+      <div style={{ fontSize: 24, fontWeight: 'bold' }}>{t(`trafficStates.${trafficState}`)}</div>
     </div>
   );
 }
@@ -109,6 +118,8 @@ export function TrafficStateHUD({ trafficState }) {
 // =============================================================================
 
 export function CollisionCounter({ collisionCount }) {
+  const { t } = useLanguage();
+  
   return (
     <div style={{
       padding: '12px 20px',
@@ -119,7 +130,7 @@ export function CollisionCounter({ collisionCount }) {
       fontFamily: 'Arial, sans-serif',
       boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
     }}>
-      <div style={{ fontSize: 12, textTransform: 'uppercase', opacity: 0.7, marginBottom: 4 }}>Accidents</div>
+      <div style={{ fontSize: 12, textTransform: 'uppercase', opacity: 0.7, marginBottom: 4 }}>{t('collisionCounter.label')}</div>
       <div style={{ fontSize: 24, fontWeight: 'bold' }}>{collisionCount}</div>
     </div>
   );
@@ -130,6 +141,7 @@ export function CollisionCounter({ collisionCount }) {
 // =============================================================================
 
 export function DayTimeDisplay({ dayTime }) {
+  const { t } = useLanguage();
   const hours = Math.floor(dayTime / 3600).toString().padStart(2, '0');
   const minutes = Math.floor((dayTime % 3600) / 60).toString().padStart(2, '0');
   
@@ -143,7 +155,7 @@ export function DayTimeDisplay({ dayTime }) {
       fontFamily: 'Arial, sans-serif',
       boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
     }}>
-      <div style={{ fontSize: 12, textTransform: 'uppercase', opacity: 0.7, marginBottom: 4 }}>Time</div>
+      <div style={{ fontSize: 12, textTransform: 'uppercase', opacity: 0.7, marginBottom: 4 }}>{t('dayTime.label')}</div>
       <div style={{ fontSize: 20, fontWeight: 'bold' }}>{hours}:{minutes}</div>
     </div>
   );
@@ -154,6 +166,8 @@ export function DayTimeDisplay({ dayTime }) {
 // =============================================================================
 
 export function ActiveEventHUD({ activeEvent }) {
+  const { t } = useLanguage();
+  
   if (!activeEvent) return null;
   
   return (
@@ -167,8 +181,8 @@ export function ActiveEventHUD({ activeEvent }) {
       animation: 'pulse 2s infinite',
       boxShadow: '0 4px 15px rgba(192, 57, 43, 0.4)'
     }}>
-      <div style={{ fontSize: 12, textTransform: 'uppercase', fontWeight: 'bold', marginBottom: 4 }}>⚠ ACTIVE EVENT</div>
-      <div style={{ fontSize: 20, fontWeight: 'bold' }}>{activeEvent}</div>
+      <div style={{ fontSize: 12, textTransform: 'uppercase', fontWeight: 'bold', marginBottom: 4 }}>{t('activeEvent.label')}</div>
+      <div style={{ fontSize: 20, fontWeight: 'bold' }}>{t(`events.${activeEvent}`) || activeEvent}</div>
     </div>
   );
 }
@@ -178,6 +192,8 @@ export function ActiveEventHUD({ activeEvent }) {
 // =============================================================================
 
 export function Instructions() {
+  const { t } = useLanguage();
+  
   return (
     <div style={{
       padding: '8px 12px',
@@ -187,7 +203,7 @@ export function Instructions() {
       fontSize: 12,
       fontFamily: 'Arial, sans-serif'
     }}>
-      Drag to rotate view
+      {t('instructions.dragToRotate')}
     </div>
   );
 }

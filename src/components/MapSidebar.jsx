@@ -1,5 +1,6 @@
 import React from 'react';
 import { MAP_CONFIGS } from '../utils/Constants';
+import { useLanguage } from '../contexts/LanguageContext';
 
 // =============================================================================
 //  MAP SELECTION SIDEBAR
@@ -12,22 +13,26 @@ export function MapSidebar({
   switchMap, 
   isLoading 
 }) {
+  const { t, currentLanguage } = useLanguage();
+  const isRTL = currentLanguage === 'ar';
+  
   return (
     <>
       {/* Sidebar Panel */}
       <div style={{
         position: 'absolute',
         top: 0,
-        left: sidebarOpen ? 0 : -320,
+        [isRTL ? 'right' : 'left']: sidebarOpen ? 0 : -320,
         width: 320,
         height: '100%',
         background: 'rgba(20, 20, 30, 0.98)',
         boxShadow: sidebarOpen ? '4px 0 20px rgba(0,0,0,0.5)' : 'none',
-        transition: 'left 0.3s ease',
+        transition: isRTL ? 'right 0.3s ease' : 'left 0.3s ease',
         zIndex: 100,
         display: 'flex',
         flexDirection: 'column',
-        fontFamily: 'Arial, sans-serif'
+        fontFamily: 'Arial, sans-serif',
+        direction: isRTL ? 'rtl' : 'ltr'
       }}>
         {/* Header */}
         <div style={{
@@ -37,7 +42,7 @@ export function MapSidebar({
           justifyContent: 'space-between',
           alignItems: 'center'
         }}>
-          <h2 style={{ color: 'white', margin: 0, fontSize: 20 }}>🗺️ Select Map</h2>
+          <h2 style={{ color: 'white', margin: 0, fontSize: 20 }}>🗺️ {t('mapSidebar.title')}</h2>
           <button
             onClick={() => setSidebarOpen(false)}
             style={{
@@ -78,7 +83,7 @@ export function MapSidebar({
           fontSize: 12,
           textAlign: 'center'
         }}>
-          Select a map to switch the simulation environment
+          {t('mapSidebar.footer')}
         </div>
       </div>
       
@@ -109,7 +114,7 @@ export function MapSidebar({
           onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
           onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
         >
-          🗺️ Maps
+          🗺️ {t('mapSidebar.toggleButton')}
         </button>
       )}
     </>
@@ -121,6 +126,8 @@ export function MapSidebar({
 // =============================================================================
 
 function MapOption({ map, isActive, isLoading, onClick }) {
+  const { t } = useLanguage();
+  
   return (
     <div
       onClick={onClick}
@@ -171,7 +178,7 @@ function MapOption({ map, isActive, isLoading, onClick }) {
             fontSize: 16,
             marginBottom: 4
           }}>
-            {map.name}
+            {t(`maps.${map.id}.name`) || map.name}
             {isActive && (
               <span style={{
                 marginLeft: 8,
@@ -180,7 +187,7 @@ function MapOption({ map, isActive, isLoading, onClick }) {
                 padding: '2px 8px',
                 borderRadius: 4
               }}>
-                Active
+                {t('mapSidebar.active')}
               </span>
             )}
           </div>
@@ -188,7 +195,7 @@ function MapOption({ map, isActive, isLoading, onClick }) {
             color: 'rgba(255,255,255,0.6)',
             fontSize: 12
           }}>
-            {map.description}
+            {t(`maps.${map.id}.description`) || map.description}
           </div>
         </div>
       </div>

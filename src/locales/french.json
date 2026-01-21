@@ -1,0 +1,76 @@
+{
+  "connectionStatus": {
+    "connected": "● Connecté",
+    "disconnected": "○ Déconnecté"
+  },
+  "pauseButton": {
+    "pause": "⏸ Pause",
+    "resume": "▶ Reprendre"
+  },
+  "currentMap": {
+    "label": "Carte Actuelle"
+  },
+  "trafficState": {
+    "label": "État du Trafic",
+    "slow": "Lent",
+    "moderate": "Modéré",
+    "normal": "Normal"
+  },
+  "collisionCounter": {
+    "label": "Accidents"
+  },
+  "dayTime": {
+    "label": "Heure"
+  },
+  "activeEvent": {
+    "label": "⚠ ÉVÉNEMENT ACTIF"
+  },
+  "instructions": {
+    "dragToRotate": "Glisser pour faire pivoter la vue"
+  },
+  "loadingScreen": {
+    "loading": "Chargement",
+    "complete": "Terminé"
+  },
+  "mapSidebar": {
+    "title": "🗺️ Sélectionner la Carte",
+    "footer": "Sélectionnez une carte pour changer l'environnement de simulation",
+    "toggleButton": "🗺️ Cartes",
+    "active": "Actif"  },
+  "trafficStates": {
+    "Slow": "Lent",
+    "Moderate": "Modéré",
+    "Fast": "Rapide"
+  },
+  "events": {
+    "Accident": "Accident",
+    "Road Work": "Travaux Routiers",
+    "Heavy Traffic": "Trafic Dense",
+    "Emergency Vehicle": "Véhicule d'Urgence",
+    "Rush Hour": "Heure de Pointe",
+    "Construction": "Construction",
+    "Bad Weather": "Mauvais Temps",
+    "Event Nearby": "Événement à Proximité"
+  },
+  "maps": {
+    "intersection": {
+      "name": "Intersection Simple",
+      "description": "Intersection à 4 voies avec feux de circulation"
+    },
+    "rainyIntersection": {
+      "name": "Intersection Pluvieuse",
+      "description": "Routes mouillées avec conditions météo pluvieuses"
+    },
+    "desertIntersection": {
+      "name": "Intersection Désertique",
+      "description": "Terrain sableux avec paysage désertique chaud"
+    },
+    "snowyIntersection": {
+      "name": "Intersection Enneigée",
+      "description": "Routes enneigées en conditions hivernales"
+    },
+    "cityGrid": {
+      "name": "Grille Urbaine",
+      "description": "Intersections multiples dans une disposition en grille"
+    }  }
+}

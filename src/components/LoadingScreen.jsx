@@ -1,11 +1,14 @@
 import React from 'react';
 import { MAP_CONFIGS } from '../utils/Constants';
+import { useLanguage } from '../contexts/LanguageContext';
 
 // =============================================================================
 //  LOADING SCREEN
 // =============================================================================
 
 export function LoadingScreen({ isLoading, currentMap, loadingProgress }) {
+  const { t } = useLanguage();
+  
   if (!isLoading) return null;
   
   return (
@@ -36,7 +39,7 @@ export function LoadingScreen({ isLoading, currentMap, loadingProgress }) {
         fontSize: 28,
         marginBottom: 20
       }}>
-        Loading {MAP_CONFIGS[currentMap]?.name || 'Map'}...
+        {t('loadingScreen.loading')} {t(`maps.${currentMap}.name`) || MAP_CONFIGS[currentMap]?.name || 'Map'}...
       </h2>
       <div style={{
         width: 300,
@@ -59,7 +62,7 @@ export function LoadingScreen({ isLoading, currentMap, loadingProgress }) {
         fontFamily: 'Arial, sans-serif',
         fontSize: 14
       }}>
-        {loadingProgress}% Complete
+        {loadingProgress}% {t('loadingScreen.complete')}
       </div>
     </div>
   );

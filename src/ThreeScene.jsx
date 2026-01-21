@@ -13,6 +13,7 @@ import { updateVehiclesPhysics, updateVehicleMeshes } from './scene/VehiclePhysi
 // UI Components
 import { LoadingScreen } from './components/LoadingScreen';
 import { MapSidebar } from './components/MapSidebar';
+import { LanguageSelector } from './components/LanguageSelector';
 import {
   ConnectionStatus,
   PauseButton,
@@ -481,6 +482,7 @@ export default function ThreeScene() {
         currentMap={currentMap}
         switchMap={switchMap}
         isLoading={isLoading}
+        
       />
       
       {/* Top Left Controls */}
@@ -490,10 +492,11 @@ export default function ThreeScene() {
         left: 10,
         display: 'flex',
         flexDirection: 'column',
-        gap: 10,
+        gap: 0.5,
         zIndex: 40
       }}>
         <ConnectionStatus connected={connected} />
+        
       </div>
       
       {/* Bottom Left Controls */}
@@ -506,6 +509,8 @@ export default function ThreeScene() {
         gap: 10,
         zIndex: 40
       }}>
+
+        
         <PauseButton paused={paused} setPaused={setPaused} />
         <Instructions />
       </div>
@@ -514,7 +519,7 @@ export default function ThreeScene() {
       <div style={{
         position: 'absolute',
         top: 10,
-        right: 10,
+        right: 0,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-end',
@@ -526,6 +531,9 @@ export default function ThreeScene() {
         <CollisionCounter collisionCount={collisionCount} />
         <DayTimeDisplay dayTime={dayTime} />
         <ActiveEventHUD activeEvent={activeEvent} />
+        <LanguageSelector 
+        
+        />
       </div>
       
       <HUDStyles />
