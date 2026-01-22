@@ -46,10 +46,11 @@
     numberstyle=\tiny\color{darkgray}
 }
 
-% Chapter title formatting
+% Chapter title formatting - centered at top
 \titleformat{\chapter}[display]
-{\normalfont\huge\bfseries\color{primaryblue}}
-{\chaptertitlename\ \thechapter}{20pt}{\Huge}
+{\normalfont\huge\bfseries\color{primaryblue}\centering}
+{\chaptertitlename\ \thechapter}{10pt}{\Huge}
+[\vspace{2cm}]
 
 % Section formatting
 \titleformat{\section}
@@ -88,8 +89,7 @@
     % ESPACE POUR LOGO UNIVERSITÉ / ÉCOLE
     % ============================================
     \begin{center}
-        %\includegraphics[width=6cm]{images/logo_universite.png}
-        \fbox{\parbox{6cm}{\centering\vspace{2cm}\textbf{LOGO UNIVERSITÉ}\vspace{2cm}}}
+        \includegraphics[width=5cm]{logo_iTeam.jpg}
     \end{center}
     
     \vspace{1cm}
@@ -113,30 +113,23 @@
     % ============================================
     % ESPACE POUR LOGO DU PROJET
     % ============================================
-    \begin{center}
-        %\includegraphics[width=4cm]{images/logo_projet.png}
-        \fbox{\parbox{4cm}{\centering\vspace{1.5cm}\textbf{LOGO PROJET}\vspace{1.5cm}}}
-    \end{center}
+
     
     \vspace{2cm}
     
     \begin{tabular}{rl}
-        \textbf{Réalisé par :} & Yassine Frigui \\
-                               & [Nom du Binôme] \\
-        \textbf{Encadré par :} & [Nom de l'encadrant] \\
-        \textbf{Filière :} & [Nom de la filière] \\
+        \textbf{Réalisé par :} & Yassine Frigui {&&} \\
+                               & Mohammed Aziz Dridi \\
+        \textbf{Encadré par :} & Iteam University \\
+        \textbf{Membres du jury} & Noussaiba Jaafar \\
+                                & Salah Hachani \\
+        \textbf{Filière :} & Tronc Commun \\
         \textbf{Date :} & Janvier 2026 \\
     \end{tabular}
     
     \vfill
     
-    % ============================================
-    % ESPACE POUR LOGO ENTREPRISE / ORGANISME
-    % ============================================
-    \begin{center}
-        %\includegraphics[width=4cm]{images/logo_entreprise.png}
-        \fbox{\parbox{4cm}{\centering\vspace{1cm}\textbf{LOGO ORGANISME}\vspace{1cm}}}
-    \end{center}
+  
     
 \end{titlepage}
 
@@ -152,7 +145,8 @@
 \chapter*{Introduction Générale}
 \addcontentsline{toc}{chapter}{Introduction Générale}
 
-Ce rapport présente le travail réalisé par notre binôme dans le cadre du projet semestriel de l'année universitaire 2025-2026 à \textbf{[Nom de l'Université]}. Ce projet s'inscrit dans le module \textbf{[Nom du Module]}, enseigné par \textbf{[Nom du Professeur]}, et vise à mettre en pratique les compétences acquises en développement logiciel, architecture système, et déploiement d'applications web.
+Ce rapport présente le travail réalisé par notre binôme dans le cadre du projet semestriel de l'année universitaire 2025-2026 à \textbf{Iteam University}. Ce projet s'inscrit dans le module \textbf{Projet Semestriel}, enseigné par \textbf{Dr. Ghabri Afef}, et vise à mettre en pratique les compétences acquises en développement logiciel, architecture système, et déploiement d'applications web.
+
 
 Le domaine de la simulation de trafic routier constitue un enjeu majeur pour la planification urbaine moderne. Les systèmes de gestion du trafic permettent d'optimiser la circulation, de réduire les embouteillages, et d'améliorer la sécurité routière. Dans ce contexte, ce projet propose le développement d'un système complet de simulation de feux de circulation avec visualisation 3D en temps réel.
 
@@ -173,6 +167,23 @@ Ce rapport est organisé en trois chapitres principaux. Le premier chapitre pré
 %===============================================================================
 % CHAPITRE 1 : INTRODUCTION
 %===============================================================================
+
+% Page de plan du chapitre 1
+\newpage
+\vspace*{\fill}
+\begin{center}
+{\Huge\textbf{\color{primaryblue}Plan du Chapitre 1}}
+\end{center}
+\vspace{1cm}
+\begin{itemize}[leftmargin=2cm, itemsep=1em]
+    \item \Large\textbf{Organisme d'Accueil}
+    \item \Large\textbf{Étude et Analyse}
+    \item \Large\textbf{Présentation Générale}
+    \item \Large\textbf{Conclusion du Chapitre}
+\end{itemize}
+\vspace*{\fill}
+\newpage
+
 \chapter{Introduction}
 
 Ce chapitre présente le cadre général du projet, incluant le contexte institutionnel, l'étude des solutions existantes dans le domaine de la simulation de trafic, et la présentation de la solution développée. Il permet de comprendre les motivations du projet et les choix technologiques effectués.
@@ -186,14 +197,16 @@ Cette section présente le cadre institutionnel et pédagogique dans lequel s'in
 % ============================================
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=5cm]{images/logo_organisme.png}
-    \fbox{\parbox{5cm}{\centering\vspace{2cm}\textbf{LOGO ORGANISME D'ACCUEIL}\vspace{2cm}}}
-    \caption{Logo de l'organisme d'accueil}
+    \includegraphics[width=5cm]{logo_iTeam.jpg}
+    
+    \caption{Logo d'Université "Iteam University"}
 \end{figure}
 
-Ce projet semestriel a été réalisé dans le cadre de notre formation académique à \textbf{[Nom de l'Université]}, au sein de la filière \textbf{[Nom de la Filière]}. Le projet s'inscrit dans le module \textbf{[Nom du Module]}, enseigné par \textbf{[Nom du Professeur]}, dont l'objectif est de mettre en pratique les compétences acquises en développement web, programmation système, et conception d'architectures logicielles distribuées.
+Ce projet semestriel a été réalisé dans le cadre de notre formation académique à \textbf{Iteam University}, au sein de la filière \textbf{Tronc Commun}. Le projet s'inscrit dans le module \textbf{Projet Semestriel}, enseigné par \textbf{Dr. Ghabri Afef}, dont l'objectif est de mettre en pratique les compétences acquises en développement web, programmation système, et conception d'architectures logicielles distribuées.
+
 
 L'objectif principal de ce travail en binôme était de concevoir et développer un système complet de simulation de feux de circulation, permettant d'appliquer concrètement les connaissances théoriques à un cas d'usage réel : la modélisation du trafic routier et la gestion intelligente des intersections. Ce projet représente une opportunité d'approfondir les compétences en développement full-stack, communication temps réel, et déploiement cloud.
+
 
 Le projet s'inscrit dans une démarche d'apprentissage pratique, favorisant l'autonomie, la recherche de solutions techniques, et la mise en œuvre de bonnes pratiques professionnelles en ingénierie logicielle.
 
@@ -203,15 +216,12 @@ La simulation de trafic est un domaine essentiel dans la planification urbaine m
 
 \subsection{Objectifs Pédagogiques}
 
-Ce projet en binôme vise à développer les compétences suivantes :
-
 \begin{itemize}
-    \item Maîtriser le développement full-stack (frontend et backend) en équipe
+    \item Maîtriser le développement full-stack (frontend et backend)
     \item Implémenter une communication temps réel via WebSocket
     \item Concevoir une architecture logicielle modulaire et maintenable
     \item Appliquer les bonnes pratiques de sécurité informatique
     \item Déployer une application en environnement de production
-    \item Collaborer efficacement sur un projet technique complexe
 \end{itemize}
 
 %-------------------------------------------------------------------------------
@@ -331,7 +341,7 @@ L'application propose cinq environnements thématiques différents (intersection
 
 Ce premier chapitre a permis d'établir le contexte institutionnel et technique du projet. L'analyse des solutions existantes dans le domaine de la simulation de trafic a révélé plusieurs limitations majeures : complexité d'utilisation, coûts élevés, absence de visualisation 3D interactive accessible, et difficultés de déploiement.
 
-Face à ces constats, notre équipe a proposé une solution originale, combinant accessibilité web (aucune installation requise), visualisation 3D immersive via Three.js, architecture distribuée moderne (séparation client-serveur), et communication temps réel via WebSocket. Cette approche répond aux besoins identifiés tout en offrant une expérience utilisateur fluide et interactive.
+Face à ces constats, une solution originale a été proposée, combinant accessibilité web (aucune installation requise), visualisation 3D immersive via Three.js, architecture distribuée moderne (séparation client-serveur), et communication temps réel via WebSocket. Cette approche répond aux besoins identifiés tout en offrant une expérience utilisateur fluide et interactive.
 
 La présentation générale du système a permis de comprendre les fonctionnalités principales : simulation réaliste des feux de circulation, génération dynamique de véhicules, physique des trajectoires, système d'événements, et interface de contrôle intuitive. Le système s'appuie sur un stack technologique moderne et éprouvé, garantissant performance, sécurité et maintenabilité.
 
@@ -340,6 +350,23 @@ Le chapitre suivant détaillera la phase de planification, incluant l'analyse d�
 %===============================================================================
 % CHAPITRE 2 : PLANIFICATION
 %===============================================================================
+
+% Page de plan du chapitre 2
+\newpage
+\vspace*{\fill}
+\begin{center}
+{\Huge\textbf{\color{primaryblue}Plan du Chapitre 2}}
+\end{center}
+\vspace{1cm}
+\begin{itemize}[leftmargin=2cm, itemsep=1em]
+    \item \Large\textbf{Analyse des Besoins}
+    \item \Large\textbf{Environnement de Travail}
+    \item \Large\textbf{Architecture Globale}
+    \item \Large\textbf{Conclusion du Chapitre}
+\end{itemize}
+\vspace*{\fill}
+\newpage
+
 \chapter{Planification}
 
 \section{Analyse des Besoins}
@@ -358,15 +385,6 @@ Le système implique plusieurs acteurs qui interagissent de manière différente
 
 \textbf{Administrateur :} Personne responsable de la configuration, du déploiement et de la maintenance du système sur les plateformes d'hébergement.
 
-% ============================================
-% ESPACE POUR DIAGRAMME DE CAS D'UTILISATION
-% ============================================
-\begin{figure}[H]
-    \centering
-    %\includegraphics[width=12cm]{diagrams/use_case_diagram.png}
-    \fbox{\parbox{12cm}{\centering\vspace{4cm}\textbf{DIAGRAMME DE CAS D'UTILISATION}\vspace{4cm}}}
-    \caption{Diagramme de cas d'utilisation du système}
-\end{figure}
 
 \subsection{Besoins Fonctionnels}
 
@@ -428,8 +446,9 @@ L'environnement de développement regroupe les outils utilisés quotidiennement 
 % LOGO VS CODE
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=3cm]{images/vscode_logo.png}
-    \fbox{\parbox{3cm}{\centering\vspace{1cm}\textbf{LOGO VS CODE}\vspace{1cm}}}
+    \includegraphics[width=3cm]{logos/vscode.jpeg}
+    \caption{VSCode}
+    
 \end{figure}
 
 Visual Studio Code est un éditeur de code source léger mais puissant, développé par Microsoft. Il offre un support natif pour JavaScript, Python, et de nombreux autres langages via des extensions. Son intégration Git, son débogueur intégré, et son terminal font de VS Code l'outil idéal pour le développement full-stack.
@@ -441,8 +460,9 @@ Visual Studio Code est un éditeur de code source léger mais puissant, dévelop
 % LOGO GITHUB
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=3cm]{images/github_logo.png}
-    \fbox{\parbox{3cm}{\centering\vspace{1cm}\textbf{LOGO GITHUB}\vspace{1cm}}}
+    \includegraphics[width=3cm]{github.png}
+    \caption{Logo Github}
+    
 \end{figure}
 
 GitHub est une plateforme de gestion de versions basée sur Git, facilitant la collaboration et le suivi de l'historique du code. Elle permet le déploiement automatique via GitHub Actions, l'hébergement du code source, et la gestion des workflows CI/CD pour maintenir le serveur backend actif.
@@ -460,8 +480,8 @@ Le frontend repose sur des technologies JavaScript modernes permettant de créer
 % LOGO NODE.JS
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=3cm]{images/nodejs_logo.png}
-    \fbox{\parbox{3cm}{\centering\vspace{1cm}\textbf{LOGO NODE.JS}\vspace{1cm}}}
+    \includegraphics[width=3cm]{logos/nide.png}
+    \caption{Logo Node Js}
 \end{figure}
 
 Node.js est un environnement d'exécution JavaScript côté serveur, nécessaire pour exécuter les outils de build modernes. Il permet d'utiliser npm (Node Package Manager) pour gérer les dépendances du projet frontend et exécuter les scripts de développement.
@@ -473,8 +493,8 @@ Node.js est un environnement d'exécution JavaScript côté serveur, nécessaire
 % LOGO REACT
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=3cm]{images/react_logo.png}
-    \fbox{\parbox{3cm}{\centering\vspace{1cm}\textbf{LOGO REACT}\vspace{1cm}}}
+    \includegraphics[width=3cm]{logos/react_logo.png}
+    \caption{Logo React}
 \end{figure}
 
 React est une bibliothèque JavaScript développée par Meta pour construire des interfaces utilisateur. Elle utilise un paradigme déclaratif basé sur les composants, facilitant la création d'UI interactives et réactives.
@@ -486,8 +506,8 @@ React est une bibliothèque JavaScript développée par Meta pour construire des
 % LOGO THREE.JS
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=3cm]{images/threejs_logo.png}
-    \fbox{\parbox{3cm}{\centering\vspace{1cm}\textbf{LOGO THREE.JS}\vspace{1cm}}}
+    \includegraphics[width=3cm]{three_js_logo.png}
+    \caption{Logo Three Js}
 \end{figure}
 
 Three.js est une bibliothèque JavaScript de rendu 3D utilisant WebGL. Elle simplifie la création de scènes 3D complexes avec caméras, lumières, matériaux et animations, directement dans le navigateur.
@@ -499,8 +519,8 @@ Three.js est une bibliothèque JavaScript de rendu 3D utilisant WebGL. Elle simp
 % LOGO VITE
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=3cm]{images/vite_logo.png}
-    \fbox{\parbox{3cm}{\centering\vspace{1cm}\textbf{LOGO VITE}\vspace{1cm}}}
+    \includegraphics[width=3cm]{logos/Vite.jpeg}
+    \caption{Logo Vite}
 \end{figure}
 
 Vite est un outil de build moderne offrant un serveur de développement ultra-rapide grâce au rechargement à chaud (HMR) et un bundler optimisé pour la production.
@@ -514,8 +534,8 @@ Le backend utilise Python et ses bibliothèques modernes pour assurer une commun
 % LOGO PYTHON
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=3cm]{images/python_logo.png}
-    \fbox{\parbox{3cm}{\centering\vspace{1cm}\textbf{LOGO PYTHON}\vspace{1cm}}}
+    \includegraphics[width=3cm]{logos/python.jpeg}
+    \caption{Logo Python}
 \end{figure}
 
 Python est un langage de programmation polyvalent, réputé pour sa syntaxe claire et sa riche bibliothèque standard. Il est idéal pour le développement rapide d'applications serveur.
@@ -527,8 +547,8 @@ Python est un langage de programmation polyvalent, réputé pour sa syntaxe clai
 % LOGO AIOHTTP
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=3cm]{images/aiohttp_logo.png}
-    \fbox{\parbox{3cm}{\centering\vspace{1cm}\textbf{LOGO AIOHTTP}\vspace{1cm}}}
+    \includegraphics[width=3cm]{logos/aiohttp.png}
+    \caption{Logo aiohttp}
 \end{figure}
 
 aiohttp est un framework HTTP/WebSocket asynchrone pour Python. Il permet de gérer efficacement de nombreuses connexions simultanées grâce à la programmation async/await.
@@ -542,8 +562,8 @@ Le déploiement du système repose sur des plateformes cloud modernes permettant
 % LOGO NETLIFY
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=3cm]{images/netlify_logo.png}
-    \fbox{\parbox{3cm}{\centering\vspace{1cm}\textbf{LOGO NETLIFY}\vspace{1cm}}}
+    \includegraphics[width=3cm]{logos/netlify.png}
+    \caption{Logo Netlify}
 \end{figure}
 
 Netlify est une plateforme d'hébergement spécialisée dans les sites statiques et applications JAMstack. Elle offre un déploiement automatique depuis GitHub, un CDN global, et des certificats SSL gratuits.
@@ -555,8 +575,8 @@ Netlify est une plateforme d'hébergement spécialisée dans les sites statiques
 % LOGO RENDER
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=3cm]{images/render_logo.png}
-    \fbox{\parbox{3cm}{\centering\vspace{1cm}\textbf{LOGO RENDER}\vspace{1cm}}}
+    \includegraphics[width=3cm]{logos/render.png}
+    \caption{Logo Render}
 \end{figure}
 
 Render est une plateforme cloud pour l'hébergement de services web, bases de données et applications. Elle supporte le déploiement automatique et la mise à l'échelle des applications Python.
@@ -568,8 +588,8 @@ Render est une plateforme cloud pour l'hébergement de services web, bases de do
 % LOGO GITHUB ACTIONS
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=3cm]{images/github_actions_logo.png}
-    \fbox{\parbox{3cm}{\centering\vspace{1cm}\textbf{LOGO GITHUB ACTIONS}\vspace{1cm}}}
+    \includegraphics[width=3cm]{logos/actions.png}
+    \caption{Logo Github Actions}
 \end{figure}
 
 GitHub Actions est utilisé pour l'intégration et le déploiement continus (CI/CD). Un workflow automatisé maintient le serveur backend actif en envoyant des requêtes périodiques.
@@ -586,8 +606,8 @@ Le système suit une architecture \textbf{client-serveur} avec une séparation c
 % ============================================
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=14cm]{diagrams/architecture_globale.png}
-    \fbox{\parbox{14cm}{\centering\vspace{5cm}\textbf{DIAGRAMME D'ARCHITECTURE GLOBALE}\\(Frontend ↔ WebSocket ↔ Backend)\vspace{5cm}}}
+    \includegraphics[width=14cm]{diag_traffic_light.png}
+    
     \caption{Architecture globale du système}
 \end{figure}
 
@@ -619,7 +639,7 @@ La communication utilise le protocole \textbf{WebSocket} avec des messages au fo
 %-------------------------------------------------------------------------------
 \section{Conclusion du Chapitre}
 
-Ce deuxième chapitre a permis de définir précisément le cadre de développement du projet. Notre analyse collaborative des besoins a identifié quatre acteurs principaux (utilisateur final, serveur de simulation, client web, administrateur) et a établi sept besoins fonctionnels couvrant l'ensemble des fonctionnalités attendues : visualisation 3D, simulation des feux, physique des véhicules, événements dynamiques, interface de contrôle, communication temps réel, et détection des collisions.
+Ce deuxième chapitre a permis de définir précisément le cadre de développement du projet. L'analyse des besoins a identifié quatre acteurs principaux (utilisateur final, serveur de simulation, client web, administrateur) et a établi sept besoins fonctionnels couvrant l'ensemble des fonctionnalités attendues : visualisation 3D, simulation des feux, physique des véhicules, événements dynamiques, interface de contrôle, communication temps réel, et détection des collisions.
 
 Les besoins non fonctionnels garantissent la qualité du système : performance (60 FPS, latence < 200ms), sécurité (validation d'origine, rate limiting), fiabilité (100 clients simultanés, heartbeat), maintenabilité (architecture modulaire), et portabilité (compatibilité multi-navigateurs). Ces exigences constituent le cahier des charges technique du projet.
 
@@ -632,6 +652,25 @@ Le chapitre suivant détaillera l'implémentation concrète du système, incluan
 %===============================================================================
 % CHAPITRE 3 : RÉALISATION
 %===============================================================================
+
+% Page de plan du chapitre 3
+\newpage
+\vspace*{\fill}
+\begin{center}
+{\Huge\textbf{\color{primaryblue}Plan du Chapitre 3}}
+\end{center}
+\vspace{1cm}
+\begin{itemize}[leftmargin=2cm, itemsep=1em]
+    \item \Large\textbf{Architecture Détaillée}
+    \item \Large\textbf{Implémentation Frontend}
+    \item \Large\textbf{Implémentation Backend}
+    \item \Large\textbf{Sécurité et Performance}
+    \item \Large\textbf{Déploiement}
+    \item \Large\textbf{Conclusion du Chapitre}
+\end{itemize}
+\vspace*{\fill}
+\newpage
+
 \chapter{Réalisation}
 
 Ce chapitre présente la phase d'implémentation du système, détaillant l'architecture technique, les algorithmes développés, les mécanismes de sécurité, et le déploiement en production. Il permet de comprendre comment les spécifications définies au chapitre précédent ont été concrétisées.
@@ -698,8 +737,8 @@ Ce module gère toutes les opérations réseau :
 % ============================================
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=14cm]{diagrams/diagramme_sequence.png}
-    \fbox{\parbox{14cm}{\centering\vspace{5cm}\textbf{DIAGRAMME DE SÉQUENCE}\\(Flux de communication Client-Serveur)\vspace{5cm}}}
+    \includegraphics[width=14cm]{diag_sequence_traf.png}
+   
     \caption{Diagramme de séquence de la communication}
 \end{figure}
 
@@ -761,8 +800,8 @@ Composant React central qui :
 % ============================================
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=14cm]{diagrams/architecture_frontend.png}
-    \fbox{\parbox{14cm}{\centering\vspace{5cm}\textbf{DIAGRAMME DE COMPOSANTS FRONTEND}\\(Hiérarchie des composants React)\vspace{5cm}}}
+    \includegraphics[width=14cm ,height =24cm]{diag_frontend.png}
+
     \caption{Diagramme des composants frontend}
 \end{figure}
 
@@ -905,8 +944,8 @@ Le système est déployé sur deux plateformes cloud complémentaires :
 % ============================================
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=14cm]{diagrams/diagramme_deploiement.png}
-    \fbox{\parbox{14cm}{\centering\vspace{5cm}\textbf{DIAGRAMME DE DÉPLOIEMENT}\\(Netlify + Render + GitHub Actions)\vspace{5cm}}}
+    \includegraphics[width=14cm]{diag_de_déploiement.png}
+    
     \caption{Architecture de déploiement}
 \end{figure}
 
@@ -930,8 +969,7 @@ Le frontend React est hébergé sur Netlify avec les configurations suivantes :
 % ============================================
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=14cm]{screenshots/netlify_dashboard.png}
-    \fbox{\parbox{14cm}{\centering\vspace{4cm}\textbf{CAPTURE D'ÉCRAN}\\Configuration Netlify Dashboard\vspace{4cm}}}
+    \includegraphics[width=14cm]{config_net.png}
     \caption{Interface de configuration Netlify}
 \end{figure}
 
@@ -952,11 +990,10 @@ Le serveur Python est hébergé sur Render.com :
 \begin{lstlisting}[caption=Configuration du service Render]
 # Type: Web Service
 # Environment: Python 3.12
-# Build Command: pip install -r requirements.txt
+# Build Command: pip install -r requirements.txt (contient les librairies)
 # Start Command: python traffic.py
 
 # Variables d'environnement
-PORT=10000
 ALLOWED_ORIGINS=https://iteam-traffic-light.netlify.app
 MAX_CLIENTS=100
 \end{lstlisting}
@@ -1034,8 +1071,8 @@ Cette section présente des captures d'écran de l'application en fonctionnement
 % ============================================
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=14cm]{screenshots/interface_principale.png}
-    \fbox{\parbox{14cm}{\centering\vspace{6cm}\textbf{CAPTURE D'ÉCRAN}\\Interface principale avec intersection 3D\vspace{6cm}}}
+    \includegraphics[width=14cm]{interface.png}
+    
     \caption{Interface principale de la simulation}
 \end{figure}
 
@@ -1044,37 +1081,42 @@ Cette section présente des captures d'écran de l'application en fonctionnement
 % ============================================
 % CAPTURES D'ÉCRAN - ENVIRONNEMENTS
 % ============================================
+
+
+
 \begin{figure}[H]
     \centering
-    \begin{minipage}{0.45\textwidth}
-        \centering
-        %\includegraphics[width=5.5cm]{screenshots/intersection_pluie.png}
-        \fbox{\parbox{5.5cm}{\centering\vspace{3cm}\textbf{INTERSECTION PLUVIEUSE}\vspace{3cm}}}
-    \end{minipage}
-    \hfill
-    \begin{minipage}{0.45\textwidth}
-        \centering
-        %\includegraphics[width=5.5cm]{screenshots/intersection_desert.png}
-        \fbox{\parbox{5.5cm}{\centering\vspace{3cm}\textbf{INTERSECTION DÉSERTIQUE}\vspace{3cm}}}
-    \end{minipage}
-    \caption{Environnements thématiques : pluie et désert}
+    \includegraphics[width=14cm]{rain.png}
+    
+    \caption{INTERSECTION PLUVIEUSE}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \begin{minipage}{0.45\textwidth}
-        \centering
-        %\includegraphics[width=5.5cm]{screenshots/intersection_neige.png}
-        \fbox{\parbox{5.5cm}{\centering\vspace{3cm}\textbf{INTERSECTION ENNEIGÉE}\vspace{3cm}}}
-    \end{minipage}
-    \hfill
-    \begin{minipage}{0.45\textwidth}
-        \centering
-        %\includegraphics[width=5.5cm]{screenshots/grille_urbaine.png}
-        \fbox{\parbox{5.5cm}{\centering\vspace{3cm}\textbf{GRILLE URBAINE}\vspace{3cm}}}
-    \end{minipage}
-    \caption{Environnements thématiques : neige et ville}
+    \includegraphics[width=14cm]{desert.png}}
+    
+    \caption{INTERSECTION DÉSERTIQUE}
 \end{figure}
+
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=14cm]{snow.png}
+    
+    \caption{INTERSECTION ENNEIGÉE}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=14cm]{metro.png}
+    
+    \caption{INTERSECTION MÉTROPOLITAINE}
+\end{figure}
+
+
+
 
 \subsection{Interface Utilisateur (HUD)}
 
@@ -1083,10 +1125,18 @@ Cette section présente des captures d'écran de l'application en fonctionnement
 % ============================================
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=14cm]{screenshots/hud_interface.png}
-    \fbox{\parbox{14cm}{\centering\vspace{4cm}\textbf{CAPTURE D'ÉCRAN}\\Éléments du HUD (statut connexion, pause, collisions, événements)\vspace{4cm}}}
+    \includegraphics[width=14cm,height=15cm]{HUD.png}
+  
     \caption{Éléments de l'interface utilisateur}
 \end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=10cm]{language selection.png}
+  
+    \caption{Sélectionneur des langues}
+\end{figure}
+L'interface utilisateur a été conçue pour être intuitive et multilingue. Le système prend en charge trois langues (anglais, français, arabe) avec un sélecteur de langue intégré permettant aux utilisateurs de basculer dynamiquement entre les langues. Cette fonctionnalité améliore l'accessibilité et l'expérience utilisateur pour un public international.
 
 \subsection{Barre Latérale de Sélection de Carte}
 
@@ -1095,8 +1145,8 @@ Cette section présente des captures d'écran de l'application en fonctionnement
 % ============================================
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=8cm]{screenshots/map_sidebar.png}
-    \fbox{\parbox{8cm}{\centering\vspace{5cm}\textbf{CAPTURE D'ÉCRAN}\\Barre latérale de sélection de carte\vspace{5cm}}}
+    \includegraphics[width=8cm, height =14cm]{map_selection.png}
+    
     \caption{Sélecteur de carte avec les 5 environnements}
 \end{figure}
 
@@ -1158,190 +1208,81 @@ Les mesures de sécurité (validation d'origine, limitation de débit, restricti
 
 Les captures d'écran illustrent l'interface utilisateur aboutie et les différents environnements thématiques. Les tests fonctionnels, de performance et de sécurité valident la conformité du système aux spécifications : 60 FPS stables, latence < 100ms, support de 20 clients simultanés, et protection efficace contre les attaques.
 
-Le système développé par notre binôme répond pleinement aux objectifs fixés en début de projet : accessibilité web, visualisation 3D interactive, architecture distribuée moderne, communication temps réel, et déploiement en production. Les compétences acquises durant ce projet collaboratif (développement full-stack, programmation asynchrone, rendu 3D, déploiement cloud, travail d'équipe) constituent un atout majeur pour la suite de notre parcours académique et professionnel.
+Le système développé répond pleinement aux objectifs fixés en début de projet : accessibilité web, visualisation 3D interactive, architecture distribuée moderne, communication temps réel, et déploiement en production. Les compétences acquises durant ce projet (développement full-stack, programmation asynchrone, rendu 3D, déploiement cloud) constituent un atout majeur pour la suite du parcours académique et professionnel.
 
 %===============================================================================
 % CONCLUSION GÉNÉRALE ET PERSPECTIVES
 %===============================================================================
 \chapter*{Conclusion Générale et Perspectives}
-\addcontentsline{toc}{chapter}{Conclusion Générale et Perspectives}
+\addcontentsline{toc}{chapter}{Conclusion Générale}
 
-Ce projet semestriel en binôme, réalisé dans le cadre du module \textbf{[Nom du Module]} enseigné par \textbf{[Nom du Professeur]} à \textbf{[Nom de l'Université]}, a permis de concevoir et développer un système complet de simulation de feux de circulation avec visualisation 3D en temps réel. L'application développée par notre équipe combine les technologies web modernes (React 18, Three.js r160) avec un backend Python asynchrone (aiohttp 3.9) pour offrir une expérience utilisateur fluide, interactive et immersive.
+Ce projet semestriel a permis de concevoir et développer un système complet de simulation de feux de circulation avec visualisation 3D en temps réel. L'application combine les technologies web modernes (React, Three.js) avec un backend Python asynchrone pour offrir une expérience utilisateur fluide et interactive.
 
-\section*{Synthèse des Réalisations}
+\section*{Bilan du Projet}
 
-Le travail accompli par notre binôme durant ce projet s'articule autour de trois phases principales, correspondant aux trois chapitres de ce rapport. L'analyse et conception ont permis d'identifier les limitations des solutions existantes et de proposer une architecture web moderne. Le développement collaboratif et l'implémentation ont abouti à un système modulaire robuste avec communication temps réel via WebSocket. Le déploiement et la validation ont confirmé la conformité du système aux spécifications avec des performances optimales.
-
-\section*{Objectifs Atteints}
-
-L'ensemble des objectifs fixés en début de projet ont été atteints :
+\textbf{Objectifs atteints :}
 \begin{itemize}
-    \item Architecture client-serveur modulaire avec séparation claire des responsabilités
-    \item Communication temps réel via WebSocket avec synchronisation temporelle basée sur horodatages absolus
-    \item Visualisation 3D interactive avec 5 environnements thématiques et contrôle de caméra intuitif
-    \item Physique réaliste des véhicules avec machine à états pour les virages et détection des collisions
-    \item Mesures de sécurité en production (validation d'origine, limitation de débit, restriction de taille)
-    \item Déploiement automatisé sur Netlify et Render avec workflow GitHub Actions
-    \item Système d'événements dynamiques simulant divers scénarios de trafic réalistes
+    \item Architecture client-serveur modulaire et maintenable
+    \item Communication temps réel via WebSocket avec synchronisation temporelle
+    \item Visualisation 3D interactive avec 5 environnements thématiques
+    \item Physique réaliste des véhicules incluant virages courbes
+    \item Mesures de sécurité pour la production (validation d'origine, rate limiting)
+    \item Déploiement complet sur Netlify (frontend) et Render (backend)
+    \item Automatisation du maintien du serveur via GitHub Actions
 \end{itemize}
 
-\section*{Compétences Développées}
-
-Ce projet en binôme a permis d'acquérir et d'approfondir des compétences techniques et collaboratives essentielles :
+\textbf{Compétences développées :}
 \begin{itemize}
-    \item Développement full-stack en équipe (JavaScript/React, Python/aiohttp) et architectures distribuées
-    \item Programmation asynchrone (async/await), gestion d'événements et protocole WebSocket
-    \item Rendu 3D temps réel avec Three.js, manipulation de géométries et optimisation WebGL
-    \item Conception logicielle (machines à états, architecture modulaire, patterns de conception)
-    \item Sécurité informatique (validation d'entrées, protection DoS, gestion sécurisée des connexions)
-    \item Déploiement et DevOps (plateformes cloud, automatisation CI/CD, monitoring)
-    \item Gestion de projet collaboratif (analyse des besoins, planification, documentation, tests et validation)
-    \item Travail d'équipe (répartition des tâches, communication, résolution collaborative de problèmes)
+    \item Développement full-stack (JavaScript/React, Python/aiohttp)
+    \item Programmation asynchrone et protocole WebSocket
+    \item Rendu 3D avec Three.js et WebGL
+    \item Conception de machines à états pour la logique métier
+    \item Bonnes pratiques de sécurité web
+    \item Déploiement cloud et CI/CD avec GitHub Actions
 \end{itemize}
 
-\section*{Difficultés Rencontrées et Solutions Apportées}
+\section*{Difficultés Rencontrées}
 
-Durant le développement, notre équipe a identifié et résolu plusieurs défis techniques :
-\begin{enumerate}
-    \item \textbf{Synchronisation temporelle :} Résolu par l'utilisation d'horodatages absolus (ExpiresAt) avec interpolation côté client basée sur le temps écoulé
-    \item \textbf{Trajectoires réalistes :} Implémenté via machine à états à 4 phases (STRAIGHT, ENTERING\_TURN, ROTATING, EXITING\_TURN) avec trajectoires courbes
-    \item \textbf{Mise en veille du serveur :} Contourné grâce à GitHub Actions envoyant des requêtes périodiques (toutes les 14 minutes) au endpoint /healthz
-    \item \textbf{Performance du rendu :} Optimisé par réutilisation des géométries, mises à jour sélectives et throttling du redessin des canvas
-\end{enumerate}
+Durant le développement, plusieurs défis techniques ont été surmontés :
+\begin{itemize}
+    \item \textbf{Synchronisation temporelle :} Résolu par l'utilisation d'horodatages absolus (ExpiresAt) et l'interpolation côté client
+    \item \textbf{Virages réalistes :} Implémenté via une machine à états à 4 phases avec trajectoires courbes
+    \item \textbf{Serveur en veille :} Contourné grâce à GitHub Actions maintenant le serveur actif
+\end{itemize}
 
 \section*{Perspectives d'Évolution}
 
-Ce projet constitue une base solide pour de nombreuses évolutions futures :
-
-\subsection*{Évolutions Fonctionnelles}
+Ce projet constitue une base solide pour des évolutions futures :
 \begin{itemize}
-    \item Nouveaux types d'intersections (carrefours giratoires, passages piétons, sens uniques)
-    \item Piétons et vélos avec comportements spécifiques
-    \item Transports en commun (bus, tramways) avec arrêts programmés
-    \item Conditions météorologiques dynamiques affectant la circulation
-    \item Statistiques avancées (temps d'attente, débit par voie, graphiques temps réel)
+    \item Ajout de nouveaux types d'intersections (rond-point, passage piéton)
+    \item Optimisation automatique des cycles de feux par algorithmes d'apprentissage
+    \item Intégration de données de trafic réelles (OpenStreetMap, API de trafic)
+    \item Mode multijoueur permettant le contrôle manuel des véhicules
+    \item Application mobile avec React Native
 \end{itemize}
 
-\subsection*{Évolutions Techniques}
-\begin{itemize}
-    \item Optimisation automatique des cycles de feux par apprentissage automatique
-    \item Intégration de données réelles (OpenStreetMap, API de trafic)
-    \item Mode collaboratif permettant le contrôle manuel multi-utilisateurs
-    \item Export de données (rapports PDF, statistiques CSV, enregistrements vidéo)
-    \item Application mobile (React Native) avec adaptation tactile
-    \item Intelligence artificielle (apprentissage par renforcement pour comportements réalistes)
-\end{itemize}
-
-\subsection*{Amélioration de l'Infrastructure}
-\begin{itemize}
-    \item Base de données pour stockage des sessions et historique
-    \item Authentification avec profils utilisateurs et préférences sauvegardées
-    \item API REST pour intégration avec systèmes externes
-    \item Monitoring avancé (Prometheus, Grafana) et alertes automatiques
-    \item Tests automatisés (unitaires, intégration) avec couverture de code complète
-\end{itemize}
-
-\section*{Conclusion}
-
-Ce projet démontre qu'il est possible de créer une application web complexe, performante et sécurisée, en combinant judicieusement les technologies frontend et backend modernes. L'architecture développée offre une base solide pour des évolutions futures tout en garantissant maintenabilité et scalabilité.
-
-Au-delà des aspects techniques, ce projet en binôme a représenté une opportunité précieuse de mettre en pratique une démarche d'ingénierie logicielle complète en équipe. Les compétences techniques et collaboratives acquises constituent un atout majeur pour la poursuite de notre parcours académique et professionnel dans le domaine du développement logiciel.
-
-Enfin, ce projet illustre l'importance d'une approche méthodique et rigoureuse dans le développement d'applications web modernes, où la collaboration en équipe, la séparation des responsabilités, la sécurité, et la performance doivent être intégrées dès la conception pour garantir la qualité du produit final.
-
-\newpage
-
-%===============================================================================
-% RÉFÉRENCES
-%===============================================================================
-\chapter*{Références}
-\addcontentsline{toc}{chapter}{Références}
-
-\section*{Documentation Technique}
-
-\begin{enumerate}
-    \item \textbf{React Documentation} - \url{https://react.dev/} \\  
-    Documentation officielle de React 18, hooks et composants
-    
-    \item \textbf{Three.js Documentation} - \url{https://threejs.org/docs/} \\  
-    Documentation officielle de Three.js r160, exemples et API
-    
-    \item \textbf{Vite Guide} - \url{https://vitejs.dev/guide/} \\  
-    Guide officiel de Vite 5, configuration et optimisations
-    
-    \item \textbf{Python aiohttp Documentation} - \url{https://docs.aiohttp.org/} \\  
-    Documentation de aiohttp 3.9, WebSocket et programmation asynchrone
-    
-    \item \textbf{MDN Web Docs - WebSocket API} \\
-    \url{https://developer.mozilla.org/en-US/docs/Web/API/WebSocket} \\  
-    Spécification et exemples du protocole WebSocket
-    
-    \item \textbf{WebGL Fundamentals} - \url{https://webglfundamentals.org/} \\  
-    Fondamentaux du rendu 3D avec WebGL
-\end{enumerate}
-
-\section*{Plateformes de Déploiement}
-
-\begin{enumerate}
-    \item \textbf{Netlify Documentation} - \url{https://docs.netlify.com/} \\  
-    Déploiement et configuration de sites statiques
-    
-    \item \textbf{Render Documentation} - \url{https://render.com/docs} \\  
-    Hébergement de services web Python
-    
-    \item \textbf{GitHub Actions Documentation} - \url{https://docs.github.com/en/actions} \\  
-    Workflows CI/CD et automatisation
-\end{enumerate}
-
-\section*{Outils de Simulation de Trafic (État de l'Art)}
-
-\begin{enumerate}
-    \item \textbf{SUMO - Simulation of Urban MObility} \\
-    \url{https://www.eclipse.org/sumo/} \\  
-    Simulateur de trafic microscopique open source, DLR
-    
-    \item \textbf{PTV Vissim} - \url{https://www.ptvgroup.com/en/products/ptv-vissim} \\  
-    Logiciel commercial de microsimulation du trafic
-    
-    \item \textbf{AnyLogic Road Traffic Library} \\
-    \url{https://www.anylogic.com/road-traffic-library/} \\  
-    Bibliothèque de simulation multi-méthodes pour le trafic
-\end{enumerate}
-
-\section*{Articles et Standards}
-
-\begin{enumerate}
-    \item \textbf{RFC 6455 - The WebSocket Protocol} \\
-    \url{https://datatracker.ietf.org/doc/html/rfc6455} \\  
-    Spécification officielle du protocole WebSocket
-    
-    \item \textbf{JSON Specification} - \url{https://www.json.org/} \\  
-    Format d'échange de données structurées
-    
-    \item \textbf{OpenStreetMap} - \url{https://www.openstreetmap.org/} \\  
-    Données cartographiques libres et collaboratives
-\end{enumerate}
-
-\section*{Code Source du Projet}
-
-\begin{itemize}
-    \item \textbf{Repository GitHub} \\
-    \url{https://github.com/Yassine-Frigui/Traffic-light} \\  
-    Code source complet du projet, branches et historique
-    
-    \item \textbf{Frontend déployé} \\
-    \url{https://iteam-traffic-light.netlify.app} \\  
-    Application React en production sur Netlify
-    
-    \item \textbf{Backend déployé} \\
-    \url{https://traffic-light-ugoe.onrender.com} \\  
-    Serveur Python en production sur Render
-\end{itemize}
+Ce projet démontre qu'il est possible de créer une application web complexe, performante et sécurisée, en combinant judicieusement les technologies frontend et backend modernes.
 
 %===============================================================================
 % ANNEXES
 %===============================================================================
 \appendix
+
+% Page de plan des annexes
+\newpage
+\vspace*{\fill}
+\begin{center}
+{\Huge\textbf{\color{primaryblue}Plan des Annexes}}
+\end{center}
+\vspace{1cm}
+\begin{itemize}[leftmargin=2cm, itemsep=1em]
+    \item \Large\textbf{Code Source}
+    \item \Large\textbf{Liens de Déploiement}
+    \item \Large\textbf{Statistiques du Projet}
+\end{itemize}
+\vspace*{\fill}
+\newpage
+
 \chapter{Annexes}
 
 \section{Code Source}
