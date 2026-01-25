@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CONFIG, PHYSICS, VEHICLE_COLORS } from '../utils/Constants';
+import { CONFIG, PHYSICS, VEHICLE_COLORS, INTERSECTION_CONFIGS, LIGHT_ZONE_CONFIGS } from '../utils/Constants';
 import { 
   calculateCurrentRotation, 
   calculateTargetRotation, 
@@ -99,7 +99,9 @@ function updateExitingTurn(vehicle, dt) {
   const distanceTraveled = vehicle.currentPosition - vehicle.turnStartPosition;
   if (distanceTraveled >= CONFIG.EXITING_TURN_DISTANCE) {
     vehicle.turnState = 'STRAIGHT';
-    vehicle.turnDirection = 'straight';
+    // Re-randomize turn direction for potential next intersection
+    const turnRandom = Math.random();
+    vehicle.turnDirection = turnRandom < 0.5 ? 'straight' : (turnRandom < 0.75 ? 'left' : 'right');
     vehicle.turnStartPosition = 0;
   }
 }
@@ -154,10 +156,30 @@ export function updateVehiclesPhysics(dt, lightsData, localVehicles, localLights
     let shouldStop = false;
     let targetStopPosition = null;
 
-    if (shouldInitiateTurn(v)) {
-      v.turnState = 'ENTERING_TURN';
-      v.turnStartPosition = v.currentPosition;
-      return;
+    const distToCenter = Math.sqrt(v.position.x ** 2 + v.position.z ** 2);
+    
+    // Check if vehicle is near any intersection and should turn
+    const intersections = sceneDataRef.current.intersections || INTERSECTION_CONFIGS.intersection;
+    const TURN_TRIGGER_RADIUS = 10;
+    
+    for (const intersection of intersections) {
+      const distToIntersection = Math.sqrt(
+        (v.position.x - (intersection.x +.2)) ** 2 + 
+        (v.position.z - (intersection.z +.2)) ** 2
+      );
+      
+      // Check if we haven't already turned at this intersection
+      const intersectionKey = `${intersection.x},${intersection.z}`;
+      if (!v.visitedIntersections) v.visitedIntersections = new Set();
+      
+      if (distToIntersection < TURN_TRIGGER_RADIUS && 
+          !v.visitedIntersections.has(intersectionKey) && 
+          shouldInitiateTurn(v)) {
+        v.visitedIntersections.add(intersectionKey);
+        v.turnState = 'ENTERING_TURN';
+        v.turnStartPosition = v.currentPosition;
+        return;
+      }
     }
 
     const key = `${v.Sens}-${v.Voie}`;
@@ -174,7 +196,16 @@ export function updateVehiclesPhysics(dt, lightsData, localVehicles, localLights
       }
     }
 
-    if (!shouldStop && (lightColor === 'RED' || lightColor === 'YELLOW')) {
+    // Check if vehicle is within the light zone (near traffic light)
+    const currentMapId = sceneDataRef.current.currentMapId || 'intersection';
+    const lightZone = LIGHT_ZONE_CONFIGS[currentMapId] || LIGHT_ZONE_CONFIGS.intersection;
+    const distToLightZone = Math.sqrt(
+      (v.position.x - lightZone.x) ** 2 + 
+      (v.position.z - lightZone.z) ** 2
+    );
+    const isInLightZone = distToLightZone < PHYSICS.LIGHT_ZONE_RADIUS;
+
+    if (!shouldStop && isInLightZone && (lightColor === 'RED' || lightColor === 'YELLOW')) {
       if (v.currentPosition >= STOP_LINE) {
         // Already past stop line
       } else {
@@ -283,10 +314,13 @@ export function updateVehiclesPhysics(dt, lightsData, localVehicles, localLights
     }
   });
 
-  // Remove vehicles that have gone too far
+  // Remove vehicles that have left the scene (based on actual position, not distance traveled)
+  const SCENE_BOUNDARY = PHYSICS.SCENE_BOUNDARY || 140;
   Object.keys(localVehicles).forEach(id => {
     const vehicle = localVehicles[id];
-    if (vehicle.currentPosition > STOP_LINE + REMOVAL_DISTANCE) {
+    // Remove if vehicle is outside scene boundary in any direction
+    if (Math.abs(vehicle.position.x) > SCENE_BOUNDARY || 
+        Math.abs(vehicle.position.z) > SCENE_BOUNDARY) {
       delete localVehicles[id];
       collidedPairs.forEach(pairId => {
         if (pairId.includes(id)) {

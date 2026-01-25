@@ -17,10 +17,10 @@ export const CONFIG = {
   
   // Turn settings (all position-based for uniform arcs)
   TURN_TRIGGER_POSITION: 38,    // Position to start turn (after stop line at 35)
-  ENTERING_TURN_DISTANCE: 2,    // Distance to travel while entering turn
-  ROTATION_DISTANCE: 9.54,      // Distance to travel during 90° turn
-  EXITING_TURN_DISTANCE: 2,     // Distance to travel while exiting turn
-  TURN_SPEED_FACTOR: 0.8,       // Speed multiplier during turn
+  ENTERING_TURN_DISTANCE: 1.5,  // Distance to travel while entering turn
+  ROTATION_DISTANCE: 8.5,       // Distance to travel during 90° turn (sharper turn)
+  EXITING_TURN_DISTANCE: 1.5,   // Distance to travel while exiting turn
+  TURN_SPEED_FACTOR: 0.9,       // Speed multiplier during turn (slightly faster)
 };
 
 // =============================================================================
@@ -86,7 +86,50 @@ export const PHYSICS = {
   STOPPING_BUFFER: 2,      // Extra buffer to start stopping
   COLLISION_THRESHOLD: 2.5,// Distance threshold for collision detection
   TURN_COLLISION_RADIUS: 3.0, // Larger radius for turning vehicles
-  REMOVAL_DISTANCE: 120    // Remove vehicles that have traveled too far
+  REMOVAL_DISTANCE: 120,   // Remove vehicles that have traveled too far
+  SCENE_BOUNDARY: 140,     // Distance from center to remove vehicles (edge of scene)
+  LIGHT_ZONE_RADIUS: 50    // Radius around traffic light where stopping rules apply
+};
+
+// =============================================================================
+//  TRAFFIC LIGHT POSITIONS (one per map)
+// =============================================================================
+
+// Each map has only ONE traffic light - vehicles only obey lights when in this zone
+export const LIGHT_ZONE_CONFIGS = {
+  intersection: { x: 0, z: 0 },
+  rainyIntersection: { x: 0, z: 0 },
+  desertIntersection: { x: 0, z: 0 },
+  snowyIntersection: { x: 0, z: 0 },
+  cityGrid: { x: 0, z: 0 }  // Only the center intersection has traffic lights
+};
+
+// =============================================================================
+//  INTERSECTION CONFIGURATIONS
+// =============================================================================
+
+// Each map exports its intersection coordinates
+// Vehicles will initiate turns when near any of these coordinates
+export const INTERSECTION_CONFIGS = {
+  // Simple intersection maps (single intersection at center)
+  intersection: [
+    { x: 0, z: 0 }
+  ],
+  rainyIntersection: [
+    { x: 0, z: 0 }
+  ],
+  desertIntersection: [
+    { x: 0, z: 0 }
+  ],
+  snowyIntersection: [
+    { x: 0, z: 0 }
+  ],
+  // City grid has 9 intersections (3x3 grid with 60 unit spacing)
+  cityGrid: [
+    { x: -60, z: -60 }, { x: 0, z: -60 }, { x: 60, z: -60 },
+    { x: -60, z: 0 },   { x: 0, z: 0 },   { x: 60, z: 0 },
+    { x: -60, z: 60 },  { x: 0, z: 60 },  { x: 60, z: 60 }
+  ]
 };
 
 // =============================================================================

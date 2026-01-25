@@ -33,8 +33,7 @@ export function shouldInitiateTurn(vehicle) {
   if (vehicle.turnState !== 'STRAIGHT') return false;
   
   // Turn should start when vehicle reaches the intersection center area
-  // Stop line is at 35, turn starts shortly after
-  return vehicle.currentPosition >= CONFIG.TURN_TRIGGER_POSITION;
+  return true;
 }
 
 export function getDirectionMultipliers(direction) {

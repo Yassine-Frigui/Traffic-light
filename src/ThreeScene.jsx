@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 
 // Utils
-import { CONFIG, MAP_CONFIGS } from './utils/Constants';
+import { CONFIG, MAP_CONFIGS, INTERSECTION_CONFIGS } from './utils/Constants';
 import { calculateCurrentRotation } from './utils/TurnHelpers';
 
 // Scene modules
@@ -45,7 +45,8 @@ export default function ThreeScene() {
     collisionCount: 0,
     collidedPairs: new Set(),
     dayTime: 0,
-    vehicleMeshesShared: null
+    vehicleMeshesShared: null,
+    intersections: null  // Will be set based on current map
   });
   
   const [connected, setConnected] = useState(false);
@@ -58,11 +59,14 @@ export default function ThreeScene() {
   const pausedRef = useRef(false);
   
   // Map selection state
-  const [currentMap, setCurrentMap] = useState('intersection');
+  const validMaps = ['intersection', 'rainyIntersection', 'desertIntersection', 'snowyIntersection', 'cityGrid'];
+  const savedMap = localStorage.getItem('currentMap');
+  const initialMap = validMaps.includes(savedMap) ? savedMap : 'intersection';
+  const [currentMap, setCurrentMap] = useState(initialMap);
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
-  const currentMapRef = useRef('intersection');
+  const currentMapRef = useRef(initialMap);
   
   // Keep refs in sync
   useEffect(() => { pausedRef.current = paused; }, [paused]);
@@ -143,7 +147,12 @@ export default function ThreeScene() {
     // Build new map
     buildMapByType(scene, sceneDataRef.current.trafficLights, mapId);
     
+    // Set intersection coordinates and current map ID for this map
+    sceneDataRef.current.intersections = INTERSECTION_CONFIGS[mapId] || INTERSECTION_CONFIGS.intersection;
+    sceneDataRef.current.currentMapId = mapId;
+    
     setCurrentMap(mapId);
+    localStorage.setItem('currentMap', mapId);
     
     await new Promise(resolve => setTimeout(resolve, 300));
     setIsLoading(false);
@@ -339,6 +348,10 @@ export default function ThreeScene() {
     
     // Build initial map
     buildMapByType(scene, sceneDataRef.current.trafficLights, currentMapRef.current);
+    
+    // Set intersection coordinates and current map ID for initial map
+    sceneDataRef.current.intersections = INTERSECTION_CONFIGS[currentMapRef.current] || INTERSECTION_CONFIGS.intersection;
+    sceneDataRef.current.currentMapId = currentMapRef.current;
     
     // Camera controls
     let dragging = false, prevX = 0, prevY = 0;
