@@ -48,7 +48,7 @@ export default function ThreeScene() {
     vehicleMeshesShared: null,
     intersections: null  // Will be set based on current map
   });
-  
+
   const [connected, setConnected] = useState(false);
   const [events, setEvents] = useState([]);
   const [trafficState, setTrafficState] = useState('Moderate');
@@ -57,7 +57,7 @@ export default function ThreeScene() {
   const [dayTime, setDayTime] = useState(0);
   const [paused, setPaused] = useState(false);
   const pausedRef = useRef(false);
-  
+
   // Map selection state
   const validMaps = ['intersection', 'rainyIntersection', 'desertIntersection', 'snowyIntersection', 'cityGrid'];
   const savedMap = localStorage.getItem('currentMap');
@@ -67,7 +67,7 @@ export default function ThreeScene() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const currentMapRef = useRef(initialMap);
-  
+
   // Keep refs in sync
   useEffect(() => { pausedRef.current = paused; }, [paused]);
   useEffect(() => { currentMapRef.current = currentMap; }, [currentMap]);
@@ -75,14 +75,14 @@ export default function ThreeScene() {
   // ==========================================================================
   //  Map Switching Logic
   // ==========================================================================
-  
+
   const switchMap = useCallback(async (mapId) => {
     if (mapId === currentMap || isLoading) return;
-    
+
     setIsLoading(true);
     setLoadingProgress(0);
     setSidebarOpen(false);
-    
+
     const loadingSteps = [
       { progress: 10, delay: 100 },
       { progress: 30, delay: 200 },
@@ -91,14 +91,14 @@ export default function ThreeScene() {
       { progress: 90, delay: 150 },
       { progress: 100, delay: 100 },
     ];
-    
+
     for (const step of loadingSteps) {
       await new Promise(resolve => setTimeout(resolve, step.delay));
       setLoadingProgress(step.progress);
     }
-    
+
     const { scene, vehicles, trafficLights } = sceneDataRef.current;
-    
+
     // Remove all vehicles
     Object.keys(vehicles).forEach(id => {
       const mesh = vehicles[id];
@@ -109,7 +109,7 @@ export default function ThreeScene() {
       }
       delete vehicles[id];
     });
-    
+
     // Remove traffic light groups
     Object.keys(trafficLights).forEach(dir => {
       const light = trafficLights[dir];
@@ -118,13 +118,13 @@ export default function ThreeScene() {
       }
       delete trafficLights[dir];
     });
-    
+
     // Clear local state
     sceneDataRef.current.localVehicles = {};
     sceneDataRef.current.collisionCount = 0;
     sceneDataRef.current.collidedPairs = new Set();
     setCollisionCount(0);
-    
+
     // Remove map objects
     const objectsToRemove = [];
     scene.traverse((child) => {
@@ -143,17 +143,17 @@ export default function ThreeScene() {
         }
       }
     });
-    
+
     // Build new map
     buildMapByType(scene, sceneDataRef.current.trafficLights, mapId);
-    
+
     // Set intersection coordinates and current map ID for this map
     sceneDataRef.current.intersections = INTERSECTION_CONFIGS[mapId] || INTERSECTION_CONFIGS.intersection;
     sceneDataRef.current.currentMapId = mapId;
-    
+
     setCurrentMap(mapId);
     localStorage.setItem('currentMap', mapId);
-    
+
     await new Promise(resolve => setTimeout(resolve, 300));
     setIsLoading(false);
   }, [currentMap, isLoading]);
@@ -161,28 +161,28 @@ export default function ThreeScene() {
   // ==========================================================================
   //  WebSocket Connection
   // ==========================================================================
-  
+
   useEffect(() => {
     const isProd = import.meta.env.PROD;
     const wsUrl = isProd ? import.meta.env.VITE_WS_URL : 'ws://localhost:8000';
-    
+
     let ws = null;
     let reconnectTimeout = null;
-    
+
     const connect = () => {
       ws = new WebSocket(wsUrl);
-      
+
       ws.onopen = () => {
         console.log('✓ Connected to simulation server');
         setConnected(true);
       };
-      
+
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
           sceneDataRef.current.simulationData = data;
           sceneDataRef.current.lastPacketTime = performance.now();
-          
+
           if (data.Vehicles) {
             if (data.Reset === true) {
               Object.values(sceneDataRef.current.localVehicles).forEach(v => {
@@ -190,19 +190,26 @@ export default function ThreeScene() {
                 v.fadeStart = performance.now();
               });
             }
-            
+
             data.Vehicles.forEach(v => {
-              if (!v.Id || !v.Sens || !['N','S','E','W'].includes(v.Sens)) return;
-              
+              if (!v.Id || !v.Sens || !['N', 'S', 'E', 'W'].includes(v.Sens)) return;
+
               if (!sceneDataRef.current.localVehicles[v.Id]) {
                 const turnRandom = Math.random();
                 const turnDirection = turnRandom < 0.5 ? 'straight' : (turnRandom < 0.75 ? 'left' : 'right');
-                
+
                 const { LANE_OFFSET } = CONFIG;
                 const lane = v.Voie?.includes('1') ? 1 : 2;
                 const laneOff = (lane === 1 ? -LANE_OFFSET : LANE_OFFSET) * 0.8;
-                const currentPos = v.Position || 0;
-                
+                let effectivePos = v.Position || 0;
+
+                // Fix for City Grid: Spawn new cars further back so they don't appear inside secondary intersections
+                if (sceneDataRef.current.currentMapId === 'cityGrid' && effectivePos < 20) {
+                  effectivePos -= 80; // Spawns at ~130 units out instead of 50
+                }
+
+                const currentPos = effectivePos;
+
                 let initX = 0, initZ = 0;
                 if (v.Sens === 'N') {
                   initX = -laneOff;
@@ -217,7 +224,7 @@ export default function ThreeScene() {
                   initX = 50 - currentPos;
                   initZ = laneOff;
                 }
-                
+
                 sceneDataRef.current.localVehicles[v.Id] = {
                   ...v,
                   currentPosition: currentPos,
@@ -236,7 +243,7 @@ export default function ThreeScene() {
                 };
               }
             });
-            
+
             sceneDataRef.current.localVehicles = { ...sceneDataRef.current.localVehicles };
           }
 
@@ -245,7 +252,7 @@ export default function ThreeScene() {
             const serverTime = data.ServerTime || Date.now();
             sceneDataRef.current.serverTimeAtLastPacket = serverTime;
             sceneDataRef.current.clientPerfAtLastPacket = performance.now();
-            
+
             data.Lights.forEach(light => {
               const expiresAt = light.ExpiresAt || (serverTime + (light.Timer || 0) * 1000);
               newLocalLights[light.Sens] = {
@@ -279,20 +286,20 @@ export default function ThreeScene() {
           console.error('Failed to parse data:', error);
         }
       };
-      
+
       ws.onclose = () => {
         console.log('✗ Disconnected from server');
         setConnected(false);
         reconnectTimeout = setTimeout(connect, 3000);
       };
-      
+
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
       };
     };
-    
+
     connect();
-    
+
     return () => {
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (ws) ws.close();
@@ -302,11 +309,11 @@ export default function ThreeScene() {
   // ==========================================================================
   //  Three.js Scene Setup
   // ==========================================================================
-  
+
   useEffect(() => {
     const width = window.innerWidth;
     const height = window.innerHeight;
-    
+
     // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(window.devicePixelRatio);
@@ -314,20 +321,20 @@ export default function ThreeScene() {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     mountRef.current.appendChild(renderer.domElement);
-    
+
     // Scene
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#87CEEB');
-    
+
     // Camera
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
     camera.position.set(40, 50, 40);
     camera.lookAt(0, 0, 0);
-    
+
     // Lighting
     const ambient = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambient);
-    
+
     const sun = new THREE.DirectionalLight(0xffffff, 0.8);
     sun.position.set(30, 60, 20);
     sun.castShadow = true;
@@ -340,47 +347,47 @@ export default function ThreeScene() {
     sun.shadow.camera.top = 60;
     sun.shadow.camera.bottom = -60;
     scene.add(sun);
-    
+
     // Store refs
     sceneDataRef.current.scene = scene;
     sceneDataRef.current.camera = camera;
     sceneDataRef.current.renderer = renderer;
-    
+
     // Build initial map
     buildMapByType(scene, sceneDataRef.current.trafficLights, currentMapRef.current);
-    
+
     // Set intersection coordinates and current map ID for initial map
     sceneDataRef.current.intersections = INTERSECTION_CONFIGS[currentMapRef.current] || INTERSECTION_CONFIGS.intersection;
     sceneDataRef.current.currentMapId = currentMapRef.current;
-    
+
     // Camera controls
     let dragging = false, prevX = 0, prevY = 0;
-    
-    const onPointerDown = (e) => { 
-      dragging = true; 
-      prevX = e.clientX; 
-      prevY = e.clientY; 
+
+    const onPointerDown = (e) => {
+      dragging = true;
+      prevX = e.clientX;
+      prevY = e.clientY;
     };
-    
+
     const onPointerUp = () => { dragging = false; };
-    
+
     const onPointerMove = (e) => {
       if (!dragging) return;
       const dx = e.clientX - prevX;
       const dy = e.clientY - prevY;
       prevX = e.clientX;
       prevY = e.clientY;
-      
+
       camera.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), dx * 0.005);
       camera.position.y = Math.max(15, Math.min(100, camera.position.y - dy * 0.1));
       camera.lookAt(0, 0, 0);
     };
-    
+
     window.addEventListener('pointerdown', onPointerDown);
     window.addEventListener('pointerup', onPointerUp);
     window.addEventListener('pointerleave', onPointerUp);
     window.addEventListener('pointermove', onPointerMove);
-    
+
     // Resize handler
     const onResize = () => {
       const w = window.innerWidth;
@@ -390,30 +397,30 @@ export default function ThreeScene() {
       renderer.setSize(w, h);
     };
     window.addEventListener('resize', onResize);
-    
+
     // Animation loop
     let lastTime = performance.now();
     let lastLightingUpdate = 0;
     const LIGHTING_UPDATE_MS = 1000;
-    
+
     const animate = (now) => {
       requestAnimationFrame(animate);
       const dt = (now - lastTime) / 1000;
       lastTime = now;
-      
+
       if (pausedRef.current) {
         renderer.render(scene, camera);
         return;
       }
-      
+
       // Day/night cycle
       sceneDataRef.current.dayTime += dt * 100;
       if (sceneDataRef.current.dayTime >= 86400) sceneDataRef.current.dayTime = 0;
-      
+
       if (now - lastLightingUpdate > LIGHTING_UPDATE_MS) {
         lastLightingUpdate = now;
         setDayTime(sceneDataRef.current.dayTime);
-        
+
         const hour = (sceneDataRef.current.dayTime / 3600) % 24;
         const isDay = hour >= 6 && hour <= 18;
         const intensity = isDay ? 0.8 : 0.2;
@@ -421,44 +428,44 @@ export default function ThreeScene() {
         ambient.intensity = isDay ? 0.6 : 0.3;
         scene.background = new THREE.Color(isDay ? '#87CEEB' : '#191970');
       }
-      
+
       // Update from simulation
       const data = sceneDataRef.current.simulationData;
       if (data) {
         const serverTimeBase = sceneDataRef.current.serverTimeAtLastPacket || Date.now();
         const clientPerfBase = sceneDataRef.current.clientPerfAtLastPacket || performance.now();
         const estimatedServerNow = serverTimeBase + (now - clientPerfBase);
-        
+
         updateTrafficLights(
-          sceneDataRef.current.trafficLights, 
-          sceneDataRef.current.localLights, 
-          0, 
+          sceneDataRef.current.trafficLights,
+          sceneDataRef.current.localLights,
+          0,
           estimatedServerNow
         );
-        
+
         updateVehiclesPhysics(
-          dt, 
-          data.Lights, 
-          sceneDataRef.current.localVehicles, 
-          sceneDataRef.current.localLights, 
+          dt,
+          data.Lights,
+          sceneDataRef.current.localVehicles,
+          sceneDataRef.current.localLights,
           estimatedServerNow,
           sceneDataRef,
           setCollisionCount
         );
-        
+
         updateVehicleMeshes(
-          sceneDataRef.current.localVehicles, 
-          scene, 
+          sceneDataRef.current.localVehicles,
+          scene,
           sceneDataRef.current.vehicles,
           sceneDataRef
         );
       }
-      
+
       renderer.render(scene, camera);
     };
-    
+
     animate(lastTime);
-    
+
     // Cleanup
     return () => {
       window.removeEventListener('pointerdown', onPointerDown);
@@ -476,18 +483,18 @@ export default function ThreeScene() {
   // ==========================================================================
   //  Render
   // ==========================================================================
-  
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden' }}>
       <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
-      
+
       {/* Loading Screen */}
-      <LoadingScreen 
-        isLoading={isLoading} 
-        currentMap={currentMap} 
-        loadingProgress={loadingProgress} 
+      <LoadingScreen
+        isLoading={isLoading}
+        currentMap={currentMap}
+        loadingProgress={loadingProgress}
       />
-      
+
       {/* Map Sidebar */}
       <MapSidebar
         sidebarOpen={sidebarOpen}
@@ -495,9 +502,9 @@ export default function ThreeScene() {
         currentMap={currentMap}
         switchMap={switchMap}
         isLoading={isLoading}
-        
+
       />
-      
+
       {/* Top Left Controls */}
       <div style={{
         position: 'absolute',
@@ -509,9 +516,9 @@ export default function ThreeScene() {
         zIndex: 40
       }}>
         <ConnectionStatus connected={connected} />
-        
+
       </div>
-      
+
       {/* Bottom Left Controls */}
       <div style={{
         position: 'absolute',
@@ -523,11 +530,11 @@ export default function ThreeScene() {
         zIndex: 40
       }}>
 
-        
+
         <PauseButton paused={paused} setPaused={setPaused} />
         <Instructions />
       </div>
-      
+
       {/* Right Side HUD */}
       <div style={{
         position: 'absolute',
@@ -544,11 +551,11 @@ export default function ThreeScene() {
         <CollisionCounter collisionCount={collisionCount} />
         <DayTimeDisplay dayTime={dayTime} />
         <ActiveEventHUD activeEvent={activeEvent} />
-        <LanguageSelector 
-        
+        <LanguageSelector
+
         />
       </div>
-      
+
       <HUDStyles />
     </div>
   );
